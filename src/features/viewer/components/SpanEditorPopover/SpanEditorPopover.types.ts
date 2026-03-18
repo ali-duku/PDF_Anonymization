@@ -1,4 +1,4 @@
-import type { SpanEditorDraft } from "../../hooks/useRegionEditor";
+import type { SpanEditorDraft } from "../../hooks/useRegionEditor.types";
 
 export interface SpanEditorPopoverProps {
   spanEditor: SpanEditorDraft | null;

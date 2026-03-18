@@ -2,31 +2,19 @@ import {
   Suspense,
   lazy,
   useCallback,
-  useEffect,
   useMemo,
   useRef,
   useState
 } from "react";
 import { APP_META } from "../../appMeta";
-import {
-  canRedoHistory,
-  canUndoHistory,
-  commitHistory,
-  createHistoryState,
-  redoHistory,
-  replacePresentHistory,
-  undoHistory
-} from "../../utils/history";
 import { annotationService } from "../../services/annotationService";
 import { jsonService } from "../../services/jsonService";
 import { pdfRetrievalService } from "../../features/pdf/services/pdfRetrievalService";
 import { Header } from "../../components/general/Header/Header";
 import type { AppTab } from "../../components/general/TabNav/TabNav.types";
-import type {
-  OverlayDocument,
-  OverlayEditSession,
-  OverlayLoadPayload
-} from "../../types/overlay";
+import type { OverlayLoadPayload } from "../../types/overlay";
+import { useOverlayHistoryShortcuts } from "./useOverlayHistoryShortcuts";
+import { useOverlaySessionHistory } from "./useOverlaySessionHistory";
 import styles from "./AppPage.module.css";
 import type { AppPageProps } from "./AppPage.types";
 
@@ -40,31 +28,24 @@ const LazyPdfWorkspaceTab = lazy(async () => {
   return { default: module.PdfWorkspaceTab };
 });
 
-function isEditableKeyboardTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof Element)) {
-    return false;
-  }
-
-  const tagName = target.tagName;
-  if (tagName === "INPUT" || tagName === "TEXTAREA" || tagName === "SELECT") {
-    return true;
-  }
-
-  if (target instanceof HTMLElement && target.isContentEditable) {
-    return true;
-  }
-
-  return Boolean(target.closest('[contenteditable="true"]'));
-}
-
 export function AppPage({ services }: AppPageProps) {
   const [activeTab, setActiveTab] = useState<AppTab>("viewer");
   const setupGenerateHandlerRef = useRef<(() => void) | null>(null);
-  const [overlayHistory, setOverlayHistory] = useState(() =>
-    createHistoryState<OverlayEditSession | null>(null, {
-      meta: { action: "init" }
-    })
-  );
+
+  const {
+    overlaySession,
+    canUndoOverlay,
+    canRedoOverlay,
+    canManualSaveOverlay,
+    loadOverlayPayload,
+    clearOverlaySession,
+    resetOverlaySessionForDocumentSwitch,
+    saveOverlayDocument,
+    markOverlayEditStarted,
+    undoOverlay,
+    redoOverlay,
+    manualSaveOverlay
+  } = useOverlaySessionHistory();
 
   const resolvedPdfRetrievalService = useMemo(
     () => services?.pdfRetrievalService ?? pdfRetrievalService,
@@ -79,202 +60,26 @@ export function AppPage({ services }: AppPageProps) {
     [services?.annotationService]
   );
 
-  const overlaySession = overlayHistory.present.state;
   const setupOverlaySession = activeTab === "setup" ? overlaySession : null;
-  const canUndoOverlay = canUndoHistory(overlayHistory);
-  const canRedoOverlay = canRedoHistory(overlayHistory);
-  const canManualSaveOverlay = Boolean(overlaySession);
 
-  const areOverlaySessionsEqual = useCallback(
-    (left: OverlayEditSession | null, right: OverlayEditSession | null): boolean => {
-      if (left === right) {
-        return true;
-      }
-
-      if (!left || !right) {
-        return left === right;
-      }
-
-      return (
-        left.document === right.document &&
-        left.sourceRoot === right.sourceRoot &&
-        left.sourceJsonRaw === right.sourceJsonRaw &&
-        left.hasViewerChanges === right.hasViewerChanges &&
-        left.saveState.isSaving === right.saveState.isSaving &&
-        left.saveState.isSaved === right.saveState.isSaved &&
-        left.saveState.lastSavedAt === right.saveState.lastSavedAt
-      );
-    },
-    []
-  );
-
-  const commitOverlaySession = useCallback(
-    (nextSession: OverlayEditSession | null, action: string) => {
-      setOverlayHistory((previous) =>
-        commitHistory(previous, nextSession, { action }, areOverlaySessionsEqual)
-      );
-    },
-    [areOverlaySessionsEqual]
-  );
-
-  const markPresentOverlaySaved = useCallback(
-    (history: typeof overlayHistory, action: string) => {
-      const present = history.present.state;
-      if (!present) {
-        return history;
-      }
-
-      return replacePresentHistory(
-        history,
-        {
-          ...present,
-          saveState: {
-            isSaving: false,
-            isSaved: true,
-            lastSavedAt: new Date().toISOString()
-          }
-        },
-        { action },
-        areOverlaySessionsEqual
-      );
-    },
-    [areOverlaySessionsEqual]
-  );
+  useOverlayHistoryShortcuts({
+    canUndo: canUndoOverlay,
+    canRedo: canRedoOverlay,
+    onUndo: undoOverlay,
+    onRedo: redoOverlay
+  });
 
   const handleLoadOverlays = useCallback(
     (payload: OverlayLoadPayload) => {
-      commitOverlaySession(
-        {
-          ...payload,
-          hasViewerChanges: false,
-          saveState: {
-            isSaving: false,
-            isSaved: true,
-            lastSavedAt: new Date().toISOString()
-          }
-        },
-        "setup-load-overlays"
-      );
+      loadOverlayPayload(payload);
       setActiveTab("viewer");
     },
-    [commitOverlaySession]
+    [loadOverlayPayload]
   );
 
   const handleClearOverlaySession = useCallback(() => {
-    commitOverlaySession(null, "setup-clear-overlays");
-  }, [commitOverlaySession]);
-
-  const handleResetOverlaySessionForDocumentSwitch = useCallback(() => {
-    setOverlayHistory(
-      createHistoryState<OverlayEditSession | null>(null, {
-        meta: { action: "viewer-document-switch-reset" }
-      })
-    );
-  }, []);
-
-  const handleOverlayDocumentSaved = useCallback(
-    (nextDocument: OverlayDocument) => {
-      setOverlayHistory((previousHistory) => {
-        const previous = previousHistory.present.state;
-        if (!previous) {
-          return previousHistory;
-        }
-        return commitHistory(
-          previousHistory,
-          {
-            ...previous,
-            document: nextDocument,
-            hasViewerChanges: true,
-            saveState: {
-              isSaving: false,
-              isSaved: true,
-              lastSavedAt: new Date().toISOString()
-            }
-          },
-          { action: "viewer-overlay-document-saved" },
-          areOverlaySessionsEqual
-        );
-      });
-    },
-    [areOverlaySessionsEqual]
-  );
-
-  const handleUndo = useCallback(() => {
-    setOverlayHistory((previous) =>
-      markPresentOverlaySaved(undoHistory(previous), "history-undo-autosave")
-    );
-  }, [markPresentOverlaySaved]);
-
-  const handleRedo = useCallback(() => {
-    setOverlayHistory((previous) =>
-      markPresentOverlaySaved(redoHistory(previous), "history-redo-autosave")
-    );
-  }, [markPresentOverlaySaved]);
-
-  const handleManualSave = useCallback(() => {
-    setOverlayHistory((previous) =>
-      markPresentOverlaySaved(previous, "header-manual-save")
-    );
-  }, [markPresentOverlaySaved]);
-
-  useEffect(() => {
-    const onWindowKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.isComposing) {
-        return;
-      }
-
-      if (isEditableKeyboardTarget(event.target)) {
-        return;
-      }
-
-      const commandKey = event.ctrlKey || event.metaKey;
-      if (!commandKey) {
-        return;
-      }
-
-      const key = event.key.toLowerCase();
-      const wantsUndo = key === "z" && !event.shiftKey;
-      const wantsRedo = key === "y" || (key === "z" && event.shiftKey);
-
-      if (wantsUndo && canUndoOverlay) {
-        event.preventDefault();
-        handleUndo();
-        return;
-      }
-
-      if (wantsRedo && canRedoOverlay) {
-        event.preventDefault();
-        handleRedo();
-      }
-    };
-
-    window.addEventListener("keydown", onWindowKeyDown);
-    return () => {
-      window.removeEventListener("keydown", onWindowKeyDown);
-    };
-  }, [canRedoOverlay, canUndoOverlay, handleRedo, handleUndo]);
-
-  const handleOverlayEditStarted = useCallback(() => {
-    setOverlayHistory((previousHistory) => {
-      const previous = previousHistory.present.state;
-      if (!previous) {
-        return previousHistory;
-      }
-      return replacePresentHistory(
-        previousHistory,
-        {
-          ...previous,
-          saveState: {
-            ...previous.saveState,
-            isSaving: true,
-            isSaved: false
-          }
-        },
-        { action: "viewer-overlay-edit-started" },
-        areOverlaySessionsEqual
-      );
-    });
-  }, [areOverlaySessionsEqual]);
+    clearOverlaySession();
+  }, [clearOverlaySession]);
 
   const handleSetupGenerateRegister = useCallback((handler: (() => void) | null) => {
     setupGenerateHandlerRef.current = handler;
@@ -298,9 +103,9 @@ export function AppPage({ services }: AppPageProps) {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         onGenerateJson={handleGenerateJson}
-        onManualSave={handleManualSave}
-        onUndo={handleUndo}
-        onRedo={handleRedo}
+        onManualSave={manualSaveOverlay}
+        onUndo={undoOverlay}
+        onRedo={redoOverlay}
         canManualSave={canManualSaveOverlay}
         canUndo={canUndoOverlay}
         canRedo={canRedoOverlay}
@@ -317,9 +122,9 @@ export function AppPage({ services }: AppPageProps) {
               pdfRetrievalService={resolvedPdfRetrievalService}
               overlayDocument={overlaySession?.document ?? null}
               overlaySaveState={overlaySession?.saveState ?? null}
-              onOverlayEditStarted={handleOverlayEditStarted}
-              onOverlayDocumentSaved={handleOverlayDocumentSaved}
-              onClearOverlaySessionForDocumentSwitch={handleResetOverlaySessionForDocumentSwitch}
+              onOverlayEditStarted={markOverlayEditStarted}
+              onOverlayDocumentSaved={saveOverlayDocument}
+              onClearOverlaySessionForDocumentSwitch={resetOverlaySessionForDocumentSwitch}
             />
           </Suspense>
         </section>

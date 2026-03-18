@@ -1,6 +1,6 @@
 import type { ChangeEventHandler, KeyboardEvent as ReactKeyboardEvent, RefObject } from "react";
 import type { OverlayEntitySpan, OverlayRegion } from "../../../../types/overlay";
-import type { SpanEditorDraft, TextDirection } from "../../hooks/useRegionEditor";
+import type { SpanEditorDraft, TextDirection } from "../../hooks/useRegionEditor.types";
 import type { PendingSelectionRange, TextSegment } from "../../utils/textEntities";
 
 export interface RegionEditorSnippet {

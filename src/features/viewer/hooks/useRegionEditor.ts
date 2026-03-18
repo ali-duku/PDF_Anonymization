@@ -2,11 +2,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
-  useState,
   type ChangeEventHandler,
-  type Dispatch,
-  type SetStateAction,
   type KeyboardEvent as ReactKeyboardEvent
 } from "react";
 import {
@@ -19,52 +15,31 @@ import {
   sortEntitySpans
 } from "../../../constants/anonymizationEntities";
 import { REGION_LABEL_OPTIONS } from "../../../constants/regionLabelOptions";
-import type { OverlayDocument, OverlayEntitySpan, OverlayRegion } from "../../../types/overlay";
+import type { OverlayDocument, OverlayRegion } from "../../../types/overlay";
 import { applyRegionEdits, removeRegionFromDocument } from "../utils/overlayDocument";
 import {
   areEntitySpansEqual,
   buildTextSegments,
   getTextareaSelectionOffsets,
-  remapEntitySpansAfterTextChange,
-  type PendingSelectionRange
+  remapEntitySpansAfterTextChange
 } from "../utils/textEntities";
+import { useRegionEditorDraftState } from "./useRegionEditorDraftState";
+import type { UseRegionEditorOptions } from "./useRegionEditor.types";
+export type { SpanEditorDraft, TextDirection } from "./useRegionEditor.types";
 
-export type TextDirection = "rtl" | "ltr";
+function resolveActiveRegion(overlayDocument: OverlayDocument | null, activeRegionId: string | null): OverlayRegion | null {
+  if (!activeRegionId || !overlayDocument) {
+    return null;
+  }
 
-export interface SpanEditorDraft {
-  index: number;
-  entity: string;
-  anchorX: number;
-  anchorY: number;
-}
+  for (const page of overlayDocument.pages) {
+    const region = page.regions.find((item) => item.id === activeRegionId);
+    if (region) {
+      return region;
+    }
+  }
 
-interface UseRegionEditorOptions {
-  overlayDocument: OverlayDocument | null;
-  currentPage: number;
-  onOverlayEditStarted?: () => void;
-  onOverlayDocumentSaved?: (document: OverlayDocument) => void;
-}
-
-function resetDraftFields(
-  setDialogDraftLabel: Dispatch<SetStateAction<string>>,
-  setDialogDraftText: Dispatch<SetStateAction<string>>,
-  setDialogDraftEntities: Dispatch<SetStateAction<OverlayEntitySpan[]>>,
-  setDialogTextDirection: Dispatch<SetStateAction<TextDirection>>,
-  setPendingSelection: Dispatch<SetStateAction<PendingSelectionRange | null>>,
-  setPendingEntity: Dispatch<SetStateAction<string>>,
-  setPickerSelection: Dispatch<SetStateAction<PendingSelectionRange | null>>,
-  setSpanEditor: Dispatch<SetStateAction<SpanEditorDraft | null>>,
-  setEntityWarning: Dispatch<SetStateAction<string | null>>
-): void {
-  setDialogDraftLabel("");
-  setDialogDraftText("");
-  setDialogDraftEntities([]);
-  setDialogTextDirection("rtl");
-  setPendingSelection(null);
-  setPendingEntity(DEFAULT_ANONYMIZATION_ENTITY_LABEL);
-  setPickerSelection(null);
-  setSpanEditor(null);
-  setEntityWarning(null);
+  return null;
 }
 
 export function useRegionEditor({
@@ -73,48 +48,44 @@ export function useRegionEditor({
   onOverlayEditStarted,
   onOverlayDocumentSaved
 }: UseRegionEditorOptions) {
-  const dialogTextareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const dialogPreviewRef = useRef<HTMLDivElement | null>(null);
-
-  const [activeRegionId, setActiveRegionId] = useState<string | null>(null);
-  const [dialogDraftLabel, setDialogDraftLabel] = useState("");
-  const [dialogDraftText, setDialogDraftText] = useState("");
-  const [dialogDraftEntities, setDialogDraftEntities] = useState<OverlayEntitySpan[]>([]);
-  const [dialogTextDirection, setDialogTextDirection] = useState<TextDirection>("rtl");
-  const [pendingSelection, setPendingSelection] = useState<PendingSelectionRange | null>(null);
-  const [pendingEntity, setPendingEntity] = useState<string>(DEFAULT_ANONYMIZATION_ENTITY_LABEL);
-  const [pickerSelection, setPickerSelection] = useState<PendingSelectionRange | null>(null);
-  const [spanEditor, setSpanEditor] = useState<SpanEditorDraft | null>(null);
-  const [entityWarning, setEntityWarning] = useState<string | null>(null);
+  const {
+    dialogTextareaRef,
+    dialogPreviewRef,
+    activeRegionId,
+    setActiveRegionId,
+    dialogDraftLabel,
+    setDialogDraftLabel,
+    dialogDraftText,
+    setDialogDraftText,
+    dialogDraftEntities,
+    setDialogDraftEntities,
+    dialogTextDirection,
+    setDialogTextDirection,
+    pendingSelection,
+    setPendingSelection,
+    pendingEntity,
+    setPendingEntity,
+    pickerSelection,
+    setPickerSelection,
+    spanEditor,
+    setSpanEditor,
+    entityWarning,
+    setEntityWarning,
+    resetDraftState
+  } = useRegionEditorDraftState();
 
   useEffect(() => {
     setActiveRegionId(null);
-    resetDraftFields(
-      setDialogDraftLabel,
-      setDialogDraftText,
-      setDialogDraftEntities,
-      setDialogTextDirection,
-      setPendingSelection,
-      setPendingEntity,
-      setPickerSelection,
-      setSpanEditor,
-      setEntityWarning
-    );
-  }, [currentPage, overlayDocument]);
+    resetDraftState();
+  }, [currentPage, overlayDocument, resetDraftState, setActiveRegionId]);
+
+  const closeAndResetEditor = useCallback(() => {
+    setActiveRegionId(null);
+    resetDraftState();
+  }, [resetDraftState, setActiveRegionId]);
 
   const activeRegion = useMemo(() => {
-    if (!activeRegionId || !overlayDocument) {
-      return null;
-    }
-
-    for (const page of overlayDocument.pages) {
-      const region = page.regions.find((item) => item.id === activeRegionId);
-      if (region) {
-        return region;
-      }
-    }
-
-    return null;
+    return resolveActiveRegion(overlayDocument, activeRegionId);
   }, [activeRegionId, overlayDocument]);
 
   const normalizedDraftEntities = useMemo(
@@ -180,19 +151,8 @@ export function useRegionEditor({
       }
     }
 
-    setActiveRegionId(null);
-    resetDraftFields(
-      setDialogDraftLabel,
-      setDialogDraftText,
-      setDialogDraftEntities,
-      setDialogTextDirection,
-      setPendingSelection,
-      setPendingEntity,
-      setPickerSelection,
-      setSpanEditor,
-      setEntityWarning
-    );
-  }, [hasDialogChanges]);
+    closeAndResetEditor();
+  }, [closeAndResetEditor, hasDialogChanges]);
 
   const handleResetRegionEditor = useCallback(() => {
     if (!activeRegion) {
@@ -227,20 +187,10 @@ export function useRegionEditor({
       onOverlayDocumentSaved(nextDocument);
     }
 
-    setActiveRegionId(null);
-    resetDraftFields(
-      setDialogDraftLabel,
-      setDialogDraftText,
-      setDialogDraftEntities,
-      setDialogTextDirection,
-      setPendingSelection,
-      setPendingEntity,
-      setPickerSelection,
-      setSpanEditor,
-      setEntityWarning
-    );
+    closeAndResetEditor();
   }, [
     activeRegion,
+    closeAndResetEditor,
     dialogDraftEntities,
     dialogDraftLabel,
     dialogDraftText,
@@ -269,19 +219,8 @@ export function useRegionEditor({
     );
     onOverlayDocumentSaved(nextDocument);
 
-    setActiveRegionId(null);
-    resetDraftFields(
-      setDialogDraftLabel,
-      setDialogDraftText,
-      setDialogDraftEntities,
-      setDialogTextDirection,
-      setPendingSelection,
-      setPendingEntity,
-      setPickerSelection,
-      setSpanEditor,
-      setEntityWarning
-    );
-  }, [activeRegion, onOverlayDocumentSaved, onOverlayEditStarted, overlayDocument]);
+    closeAndResetEditor();
+  }, [activeRegion, closeAndResetEditor, onOverlayDocumentSaved, onOverlayEditStarted, overlayDocument]);
 
   const refreshPendingSelection = useCallback(() => {
     const textarea = dialogTextareaRef.current;

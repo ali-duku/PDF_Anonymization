@@ -1,5 +1,6 @@
 import { memo, useEffect, useMemo } from "react";
 import { useCreateBBox } from "../../hooks/useCreateBBox";
+import { useBboxClipboard } from "../../hooks/useBboxClipboard";
 import { useOverlayInteractions } from "../../hooks/useOverlayInteractions";
 import { usePageRegionNavigation } from "../../hooks/usePageRegionNavigation";
 import { usePdfDocument } from "../../hooks/usePdfDocument";
@@ -74,9 +75,17 @@ function PdfViewerTabComponent({
     onOverlayDocumentSaved
   });
 
+  const bboxClipboard = useBboxClipboard({
+    overlayDocument,
+    currentPage: pdfState.currentPage,
+    onOverlayEditStarted,
+    onOverlayDocumentSaved
+  });
+
   const regionEditor = useRegionEditor({
     overlayDocument,
     currentPage: pdfState.currentPage,
+    copiedBbox: bboxClipboard.copiedBbox,
     onOverlayEditStarted,
     onOverlayDocumentSaved
   });
@@ -166,6 +175,7 @@ function PdfViewerTabComponent({
         zoom={pdfState.zoom}
         isCreateMode={isCreateMode}
         canCreateBbox={Boolean(overlayDocument)}
+        hasCopiedBbox={bboxClipboard.hasCopiedBbox}
         recordSummary={recordSummary}
         overlayCount={visiblePageOverlays.length}
         showOverlayCount={Boolean(overlayDocument && pdfState.hasPdf)}
@@ -187,6 +197,7 @@ function PdfViewerTabComponent({
         onMovePage={pdfState.movePage}
         onPageInput={pdfState.handlePageInput}
         onToggleCreateMode={toggleCreateMode}
+        onPasteCopiedBbox={bboxClipboard.pasteCopiedBbox}
         onZoomOut={pdfState.handleZoomOut}
         onZoomIn={pdfState.handleZoomIn}
         onFitToWidth={() => {
@@ -214,6 +225,11 @@ function PdfViewerTabComponent({
         onBeginCreateBBox={beginCreateBBox}
         onBeginInteraction={beginInteraction}
         onOpenRegionEditor={regionEditor.openRegionEditor}
+        onDeleteRegion={regionEditor.deleteRegionWithCanonicalFlow}
+        onCopyRegion={bboxClipboard.copyBbox}
+        onCopyRegionText={(region) => {
+          void bboxClipboard.copyTextOnly(region);
+        }}
       />
 
       <RegionEditorModal
@@ -275,6 +291,12 @@ function PdfViewerTabComponent({
         onSave={regionEditor.handleSaveRegionEditor}
         onReset={regionEditor.handleResetRegionEditor}
         onDelete={regionEditor.handleDeleteRegionEditor}
+        onCopyRegion={bboxClipboard.copyBbox}
+        hasCopiedBbox={bboxClipboard.hasCopiedBbox}
+        onPasteRegionFromClipboard={regionEditor.handlePasteCopiedBboxIntoRegion}
+        onCopyRegionText={(region) => {
+          void bboxClipboard.copyTextOnly(region);
+        }}
       />
     </section>
   );

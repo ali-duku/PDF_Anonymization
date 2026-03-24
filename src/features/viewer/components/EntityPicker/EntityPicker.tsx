@@ -26,7 +26,7 @@ function EntityPickerComponent({
       </label>
       <SearchableEntityField
         id="overlay-entity-select"
-        value={coerceEntityLabel(pendingEntity)}
+        value={pendingEntity}
         entityLabels={entityLabels}
         coerceEntityLabel={coerceEntityLabel}
         onChange={onPendingEntityChange}

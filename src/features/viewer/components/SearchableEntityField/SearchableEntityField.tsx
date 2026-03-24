@@ -10,7 +10,7 @@ function SearchableEntityFieldComponent({
   onChange,
   className
 }: SearchableEntityFieldProps) {
-  const selectedEntity = coerceEntityLabel(value);
+  const selectedEntity = value.trim() ? coerceEntityLabel(value) : "";
   const [query, setQuery] = useState<string>(selectedEntity);
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [activeIndex, setActiveIndex] = useState<number>(0);

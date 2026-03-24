@@ -290,7 +290,7 @@ export function useRegionEditor({
 
     setPendingSelection(selectionToUse);
     setPickerSelection(selectionToUse);
-    setPendingEntity(DEFAULT_ANONYMIZATION_ENTITY_LABEL);
+    setPendingEntity("");
     setEntityWarning(null);
   }, [dialogDraftText, normalizedDraftEntities, pendingSelection]);
 
@@ -300,8 +300,13 @@ export function useRegionEditor({
       return;
     }
 
-    const nextEntity = coerceEntityLabel(pendingEntity);
-    if (!nextEntity) {
+    const pendingEntityTrimmed = pendingEntity.trim();
+    if (!pendingEntityTrimmed) {
+      setEntityWarning("Choose an entity label.");
+      return;
+    }
+    const nextEntity = coerceEntityLabel(pendingEntityTrimmed);
+    if (nextEntity !== pendingEntityTrimmed) {
       setEntityWarning("Choose an entity label.");
       return;
     }

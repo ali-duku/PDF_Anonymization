@@ -19,10 +19,13 @@ import type { OverlayDocument, OverlayRegion } from "../../../types/overlay";
 import { applyRegionEdits, removeRegionFromDocument } from "../utils/overlayDocument";
 import {
   areEntitySpansEqual,
-  buildTextSegments,
   getTextareaSelectionOffsets,
   remapEntitySpansAfterTextChange
 } from "../utils/textEntities";
+import {
+  buildRegionPreviewModel,
+  canApplySelectionToTablePreview
+} from "../utils/previewModel";
 import { useRegionEditorDraftState } from "./useRegionEditorDraftState";
 import type { UseRegionEditorOptions } from "./useRegionEditor.types";
 export type { SpanEditorDraft, TextDirection } from "./useRegionEditor.types";
@@ -107,10 +110,17 @@ export function useRegionEditor({
     [dialogDraftEntities, dialogDraftText]
   );
 
-  const textSegments = useMemo(
-    () => buildTextSegments(dialogDraftText, normalizedDraftEntities),
+  const previewModel = useMemo(
+    () => buildRegionPreviewModel(dialogDraftText, normalizedDraftEntities),
     [dialogDraftText, normalizedDraftEntities]
   );
+
+  const previewWarningMessage = useMemo(() => {
+    if (previewModel.kind !== "html_table" || previewModel.warnings.length === 0) {
+      return null;
+    }
+    return previewModel.warnings[0].message;
+  }, [previewModel]);
 
   const hasDialogChanges = useMemo(() => {
     if (!activeRegion) {
@@ -131,8 +141,15 @@ export function useRegionEditor({
     if (!pendingSelection) {
       return false;
     }
-    return !hasEntityOverlap(normalizedDraftEntities, pendingSelection.start, pendingSelection.end);
-  }, [normalizedDraftEntities, pendingSelection]);
+    if (hasEntityOverlap(normalizedDraftEntities, pendingSelection.start, pendingSelection.end)) {
+      return false;
+    }
+    return canApplySelectionToTablePreview(
+      previewModel,
+      pendingSelection.start,
+      pendingSelection.end
+    ).valid;
+  }, [normalizedDraftEntities, pendingSelection, previewModel]);
 
   const dialogLabelOptions = useMemo(() => {
     const known = REGION_LABEL_OPTIONS.includes(dialogDraftLabel as (typeof REGION_LABEL_OPTIONS)[number]);
@@ -283,6 +300,16 @@ export function useRegionEditor({
       return;
     }
 
+    const selectionValidation = canApplySelectionToTablePreview(
+      previewModel,
+      selectionToUse.start,
+      selectionToUse.end
+    );
+    if (!selectionValidation.valid) {
+      setEntityWarning(selectionValidation.warning.message);
+      return;
+    }
+
     if (hasEntityOverlap(normalizedDraftEntities, selectionToUse.start, selectionToUse.end)) {
       setEntityWarning("Overlapping anonymized spans are not allowed.");
       return;
@@ -292,11 +319,21 @@ export function useRegionEditor({
     setPickerSelection(selectionToUse);
     setPendingEntity(DEFAULT_ANONYMIZATION_ENTITY_LABEL);
     setEntityWarning(null);
-  }, [dialogDraftText, normalizedDraftEntities, pendingSelection]);
+  }, [dialogDraftText, normalizedDraftEntities, pendingSelection, previewModel]);
 
   const handleApplyPickerEntity = useCallback(() => {
     if (!pickerSelection) {
       setEntityWarning("Select a continuous text range before anonymizing.");
+      return;
+    }
+
+    const selectionValidation = canApplySelectionToTablePreview(
+      previewModel,
+      pickerSelection.start,
+      pickerSelection.end
+    );
+    if (!selectionValidation.valid) {
+      setEntityWarning(selectionValidation.warning.message);
       return;
     }
 
@@ -324,7 +361,7 @@ export function useRegionEditor({
     setPendingSelection(null);
     setPickerSelection(null);
     setEntityWarning(null);
-  }, [normalizedDraftEntities, pendingEntity, pickerSelection]);
+  }, [normalizedDraftEntities, pendingEntity, pickerSelection, previewModel]);
 
   const handleOpenSpanEditor = useCallback(
     (index: number, anchorX: number, anchorY: number) => {
@@ -434,9 +471,9 @@ export function useRegionEditor({
     pendingEntity,
     pickerSelection,
     spanEditor,
-    entityWarning,
+    entityWarning: entityWarning ?? previewWarningMessage,
     normalizedDraftEntities,
-    textSegments,
+    previewModel,
     canAnonymizeSelection,
     dialogLabelOptions,
     hasDialogChanges,

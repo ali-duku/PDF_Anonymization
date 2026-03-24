@@ -1,7 +1,8 @@
 import type { ChangeEventHandler, KeyboardEvent as ReactKeyboardEvent, RefObject } from "react";
 import type { OverlayEntitySpan, OverlayRegion } from "../../../../types/overlay";
 import type { SpanEditorDraft, TextDirection } from "../../hooks/useRegionEditor.types";
-import type { PendingSelectionRange, TextSegment } from "../../utils/textEntities";
+import type { PendingSelectionRange } from "../../utils/textEntities";
+import type { RegionPreviewModel } from "../../utils/previewModel";
 
 export interface RegionEditorSnippet {
   imageUrl: string | null;
@@ -21,7 +22,7 @@ export interface RegionEditorModalProps {
   pickerSelection: PendingSelectionRange | null;
   spanEditor: SpanEditorDraft | null;
   entityWarning: string | null;
-  textSegments: TextSegment[];
+  previewModel: RegionPreviewModel;
   normalizedDraftEntities: OverlayEntitySpan[];
   anonymizationEntityLabels: readonly string[];
   canAnonymizeSelection: boolean;

@@ -9,14 +9,15 @@
 
 ## Current Baseline
 
-- Latest shipped version: `0.6.2`.
+- Latest shipped version: `0.6.3`.
 - Latest viewer baseline includes:
   - retrieval-by-ID as the primary PDF flow,
   - session-only manual upload bypass as secondary flow,
   - viewport-aware region editor scrolling,
   - snippet zoom + save-prevention UX controls,
   - current-page bbox previous/next navigation,
-  - viewport-anchored span editor popover.
+  - viewport-anchored span editor popover,
+  - fenced HTML table rendering in Region Editor Preview with raw-offset span projection.
 
 ## What's New Updates
 

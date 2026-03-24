@@ -25,7 +25,7 @@ function RegionEditorModalComponent({
   pickerSelection,
   spanEditor,
   entityWarning,
-  textSegments,
+  previewModel,
   normalizedDraftEntities,
   anonymizationEntityLabels,
   canAnonymizeSelection,
@@ -247,40 +247,99 @@ function RegionEditorModalComponent({
               <div className={styles.editorColumn}>
                 <div className={styles.previewLabel}>Preview</div>
                 <div ref={dialogPreviewRef} className={styles.textPreview} dir={dialogTextDirection}>
-                  {textSegments.map((segment, index) => {
-                    if (segment.entityIndex === null || !segment.entity) {
-                      return (
-                        <span key={`plain-${index}`} className={styles.segment}>
-                          {segment.text}
-                        </span>
-                      );
-                    }
+                  {previewModel.kind === "plain_text"
+                    ? previewModel.segments.map((segment, index) => {
+                        if (segment.entityIndex === null || !segment.entity) {
+                          return (
+                            <span key={`plain-${index}`} className={styles.segment}>
+                              {segment.text}
+                            </span>
+                          );
+                        }
 
-                    const palette = buildEntityPalette(segment.entity);
-                    return (
-                      <span
-                        key={`entity-${segment.entityIndex}-${index}`}
-                        className={styles.entitySpan}
-                        style={{
-                          background: palette.background,
-                          color: palette.text,
-                          borderColor: palette.border
-                        }}
-                        title={`${segment.entity} [${segment.start ?? "?"}-${segment.end ?? "?"}]`}
-                        onDoubleClick={(event) => {
-                          if (segment.entityIndex === null) {
-                            return;
-                          }
-                          event.preventDefault();
-                          event.stopPropagation();
-                          const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-                          onOpenSpanEditor(segment.entityIndex, rect.left, rect.bottom + 6);
-                        }}
-                      >
-                        {segment.text}
-                      </span>
-                    );
-                  })}
+                        const palette = buildEntityPalette(segment.entity);
+                        return (
+                          <span
+                            key={`entity-${segment.entityIndex}-${index}`}
+                            className={styles.entitySpan}
+                            style={{
+                              background: palette.background,
+                              color: palette.text,
+                              borderColor: palette.border
+                            }}
+                            title={`${segment.entity} [${segment.start ?? "?"}-${segment.end ?? "?"}]`}
+                            onDoubleClick={(event) => {
+                              if (segment.entityIndex === null) {
+                                return;
+                              }
+                              event.preventDefault();
+                              event.stopPropagation();
+                              const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+                              onOpenSpanEditor(segment.entityIndex, rect.left, rect.bottom + 6);
+                            }}
+                          >
+                            {segment.text}
+                          </span>
+                        );
+                      })
+                    : (
+                        <table className={styles.previewTable}>
+                          <tbody>
+                            {previewModel.rows.map((row, rowIndex) => (
+                              <tr key={`row-${rowIndex}`}>
+                                {row.cells.map((cell, cellIndex) => {
+                                  const CellTag = cell.kind === "th" ? "th" : "td";
+                                  return (
+                                    <CellTag
+                                      key={`cell-${rowIndex}-${cellIndex}`}
+                                      className={styles.previewTableCell}
+                                      colSpan={cell.colSpan > 1 ? cell.colSpan : undefined}
+                                      rowSpan={cell.rowSpan > 1 ? cell.rowSpan : undefined}
+                                    >
+                                      {cell.fragments.map((fragment, fragmentIndex) => {
+                                        if (fragment.entityIndex === null || !fragment.entity) {
+                                          return (
+                                            <span
+                                              key={`fragment-plain-${rowIndex}-${cellIndex}-${fragmentIndex}`}
+                                              className={styles.segment}
+                                            >
+                                              {fragment.text}
+                                            </span>
+                                          );
+                                        }
+                                        const palette = buildEntityPalette(fragment.entity);
+                                        return (
+                                          <span
+                                            key={`fragment-entity-${fragment.entityIndex}-${rowIndex}-${cellIndex}-${fragmentIndex}`}
+                                            className={styles.entitySpan}
+                                            style={{
+                                              background: palette.background,
+                                              color: palette.text,
+                                              borderColor: palette.border
+                                            }}
+                                            title={`${fragment.entity} [${fragment.start ?? "?"}-${fragment.end ?? "?"}]`}
+                                            onDoubleClick={(event) => {
+                                              if (fragment.entityIndex === null) {
+                                                return;
+                                              }
+                                              event.preventDefault();
+                                              event.stopPropagation();
+                                              const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+                                              onOpenSpanEditor(fragment.entityIndex, rect.left, rect.bottom + 6);
+                                            }}
+                                          >
+                                            {fragment.text}
+                                          </span>
+                                        );
+                                      })}
+                                    </CellTag>
+                                  );
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
                 </div>
               </div>
             </div>

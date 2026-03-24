@@ -11,10 +11,10 @@ Every functional/UI update must include both:
 
 ## Latest Update
 
-- **v0.6.2 (2026-03-23)**
-  - Added a manual PDF upload bypass as a secondary Viewer action while preserving secure retrieval-by-ID flow.
-  - Added dual-source loading behavior where the latest successful load (retrieval or manual upload) becomes active.
-  - Kept manual upload session-only (no persistence/rehydration) and preserved existing overlay editing/save history behavior.
+- **v0.6.3 (2026-03-24)**
+  - Added HTML table-aware Region Editor Preview rendering for fenced ` ```html ` table content.
+  - Kept anonymization span highlighting/editing behavior in table mode with raw-offset compatibility.
+  - Added selection guards for table mode so markup-overlapping ranges cannot be anonymized.
 
 ## Core Features
 
@@ -27,6 +27,7 @@ Every functional/UI update must include both:
   - Page navigation, zoom, and fit-width.
   - Overlay drag/resize/create.
   - Region dialog editing (label/text/entities), span anonymization, and delete.
+  - Fenced HTML table preview rendering in region dialog Preview (table-only).
   - Current-page bbox Previous/Next navigation while editing.
   - Region snippet zoom controls with right-click/drag-save prevention.
 - Setup supports:

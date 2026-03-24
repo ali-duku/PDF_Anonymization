@@ -2,8 +2,26 @@ import type { AppMeta } from "./types/appMeta";
 
 export const APP_META: AppMeta = {
   name: "Anonymizer",
-  version: "0.6.2",
+  version: "0.6.4",
   releaseNotes: [
+    {
+      version: "0.6.4",
+      date: "2026-03-24",
+      highlights: [
+        "Added a draggable vertical outer-column separator in the Edit Region dialog (Region Context vs Edit Region panes).",
+        "Added keyboard-accessible pane resizing on the separator (Arrow Left/Right/Home/End with ARIA-valued separator semantics).",
+        "Region dialog outer-pane width now persists per browser tab session using sessionStorage and restores after refresh/reopen."
+      ]
+    },
+    {
+      version: "0.6.3",
+      date: "2026-03-24",
+      highlights: [
+        "Added HTML table-aware region Preview rendering for fenced ` ```html ` table text so tables render as semantic cells instead of raw code text.",
+        "Kept anonymization span behavior intact in table mode by projecting raw-offset entities into rendered table cells, including double-click span editing from Preview.",
+        "Added table-mode selection guards that block anonymization when selection overlaps HTML markup ranges, with explicit warning feedback."
+      ]
+    },
     {
       version: "0.6.2",
       date: "2026-03-23",

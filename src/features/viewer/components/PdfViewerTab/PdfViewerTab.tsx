@@ -228,7 +228,7 @@ function PdfViewerTabComponent({
         pickerSelection={regionEditor.pickerSelection}
         spanEditor={regionEditor.spanEditor}
         entityWarning={regionEditor.entityWarning}
-        textSegments={regionEditor.textSegments}
+        previewModel={regionEditor.previewModel}
         normalizedDraftEntities={regionEditor.normalizedDraftEntities}
         anonymizationEntityLabels={regionEditor.anonymizationEntityLabels}
         canAnonymizeSelection={regionEditor.canAnonymizeSelection}

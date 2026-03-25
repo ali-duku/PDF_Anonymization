@@ -6,6 +6,7 @@ export interface OverlayLayerProps {
   visiblePageOverlays: OverlayRegion[];
   interactionRegionId: string | null;
   isCreateMode: boolean;
+  isBboxStructuralEditingEnabled: boolean;
   onBeginCreateBBox: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onBeginInteraction: (
     event: ReactPointerEvent<HTMLElement>,

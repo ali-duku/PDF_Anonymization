@@ -1,7 +1,8 @@
 import type { OverlayDocument } from "../../../types/overlay";
+import type { TextDirection } from "../../../types/textDirection";
 import type { BboxClipboardPayload } from "../utils/bboxClipboard";
 
-export type TextDirection = "rtl" | "ltr";
+export type { TextDirection } from "../../../types/textDirection";
 
 export interface SpanEditorDraft {
   index: number;
@@ -14,6 +15,10 @@ export interface UseRegionEditorOptions {
   overlayDocument: OverlayDocument | null;
   currentPage: number;
   copiedBbox: BboxClipboardPayload | null;
+  isBboxStructuralEditingEnabled: boolean;
+  anonymizationEntityLabels: readonly string[];
+  defaultAnonymizationEntityLabel: string;
+  defaultTextDirection: TextDirection;
   onOverlayEditStarted?: () => void;
   onOverlayDocumentSaved?: (document: OverlayDocument) => void;
 }

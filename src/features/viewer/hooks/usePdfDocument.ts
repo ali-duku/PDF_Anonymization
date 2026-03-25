@@ -17,6 +17,7 @@ import { logStageGeometryMismatch } from "../utils/viewerDiagnostics";
 import { clampZoom } from "../utils/viewerStatus";
 
 GlobalWorkerOptions.workerSrc = pdfWorker;
+const DEFAULT_DOCUMENT_ZOOM = 1.5;
 
 interface UsePdfDocumentOptions {
   retrievedPdfDocument: RetrievedPdfDocument | null;
@@ -60,7 +61,7 @@ export function usePdfDocument({
   const [errorMessage, setErrorMessage] = useState<string>();
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(DEFAULT_DOCUMENT_ZOOM);
   const [pageWidth, setPageWidth] = useState(0);
   const [pageHeight, setPageHeight] = useState(0);
   const loadSequenceRef = useRef(0);
@@ -94,7 +95,7 @@ export function usePdfDocument({
       setDocumentMeta(null);
       setTotalPages(0);
       setCurrentPage(1);
-      setZoom(1);
+      setZoom(DEFAULT_DOCUMENT_ZOOM);
       setPageWidth(0);
       setPageHeight(0);
       setErrorMessage(undefined);
@@ -129,7 +130,7 @@ export function usePdfDocument({
       setDocumentMeta(retrievedPdfDocument.meta);
       setTotalPages(nextDoc.numPages);
       setCurrentPage(1);
-      setZoom(1);
+      setZoom(DEFAULT_DOCUMENT_ZOOM);
       setLoadStatus("ready");
     };
 

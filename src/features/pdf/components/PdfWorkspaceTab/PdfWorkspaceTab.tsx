@@ -9,6 +9,10 @@ function PdfWorkspaceTabComponent({
   pdfRetrievalService,
   overlayDocument = null,
   overlaySaveState = null,
+  anonymizationEntityLabels,
+  defaultAnonymizationEntityLabel,
+  defaultTextDirection,
+  isBboxStructuralEditingEnabled,
   onOverlayEditStarted,
   onOverlayDocumentSaved,
   onClearOverlaySessionForDocumentSwitch
@@ -93,6 +97,10 @@ function PdfWorkspaceTabComponent({
         manualUploadStatusTone={manualUploadStatusTone}
         overlayDocument={overlayDocument}
         overlaySaveState={overlaySaveState}
+        anonymizationEntityLabels={anonymizationEntityLabels}
+        defaultAnonymizationEntityLabel={defaultAnonymizationEntityLabel}
+        defaultTextDirection={defaultTextDirection}
+        isBboxStructuralEditingEnabled={isBboxStructuralEditingEnabled}
         onOverlayEditStarted={onOverlayEditStarted}
         onOverlayDocumentSaved={onOverlayDocumentSaved}
       />

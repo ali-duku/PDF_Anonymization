@@ -1,6 +1,7 @@
 import type { ChangeEventHandler, RefObject } from "react";
 import type { OverlayDocument, OverlaySaveState } from "../../../../types/overlay";
 import type { RetrievedPdfDocument } from "../../../../types/pdfRetrieval";
+import type { TextDirection } from "../../../../types/textDirection";
 import type { PdfRetrievalStatus } from "../../../pdf/hooks/usePdfRetrieval";
 
 export interface PdfViewerTabProps {
@@ -20,6 +21,10 @@ export interface PdfViewerTabProps {
   manualUploadStatusTone?: "error" | "success" | "neutral";
   overlayDocument?: OverlayDocument | null;
   overlaySaveState?: OverlaySaveState | null;
+  anonymizationEntityLabels: readonly string[];
+  defaultAnonymizationEntityLabel: string;
+  defaultTextDirection: TextDirection;
+  isBboxStructuralEditingEnabled: boolean;
   onOverlayEditStarted?: () => void;
   onOverlayDocumentSaved?: (document: OverlayDocument) => void;
 }

@@ -6,8 +6,6 @@ import {
   type KeyboardEvent as ReactKeyboardEvent
 } from "react";
 import {
-  ANONYMIZATION_ENTITY_LABELS,
-  DEFAULT_ANONYMIZATION_ENTITY_LABEL,
   buildEntityPalette,
   coerceEntityLabel,
   hasEntityOverlap,
@@ -50,6 +48,10 @@ export function useRegionEditor({
   overlayDocument,
   currentPage,
   copiedBbox,
+  isBboxStructuralEditingEnabled,
+  anonymizationEntityLabels,
+  defaultAnonymizationEntityLabel,
+  defaultTextDirection,
   onOverlayEditStarted,
   onOverlayDocumentSaved
 }: UseRegionEditorOptions) {
@@ -79,7 +81,10 @@ export function useRegionEditor({
     entityWarning,
     setEntityWarning,
     resetDraftState
-  } = useRegionEditorDraftState();
+  } = useRegionEditorDraftState({
+    defaultAnonymizationEntityLabel,
+    defaultTextDirection
+  });
 
   useEffect(() => {
     setActiveRegionId(null);
@@ -131,7 +136,9 @@ export function useRegionEditor({
       return false;
     }
 
-    const nextDraftBbox = dialogDraftBbox ?? activeRegion.bbox;
+    const nextDraftBbox = isBboxStructuralEditingEnabled
+      ? dialogDraftBbox ?? activeRegion.bbox
+      : activeRegion.bbox;
 
     return (
       dialogDraftLabel !== activeRegion.label ||
@@ -142,7 +149,14 @@ export function useRegionEditor({
         normalizeEntitySpansForText(activeRegion.entities || [], activeRegion.text || "")
       )
     );
-  }, [activeRegion, dialogDraftBbox, dialogDraftEntities, dialogDraftLabel, dialogDraftText]);
+  }, [
+    activeRegion,
+    dialogDraftBbox,
+    dialogDraftEntities,
+    dialogDraftLabel,
+    dialogDraftText,
+    isBboxStructuralEditingEnabled
+  ]);
 
   const canAnonymizeSelection = useMemo(() => {
     if (!pendingSelection) {
@@ -174,13 +188,13 @@ export function useRegionEditor({
     });
     setDialogDraftText(region.text || "");
     setDialogDraftEntities(normalizeEntitySpansForText(region.entities || [], region.text || ""));
-    setDialogTextDirection("rtl");
+    setDialogTextDirection(defaultTextDirection);
     setPendingSelection(null);
-    setPendingEntity(DEFAULT_ANONYMIZATION_ENTITY_LABEL);
+    setPendingEntity(defaultAnonymizationEntityLabel);
     setPickerSelection(null);
     setSpanEditor(null);
     setEntityWarning(null);
-  }, []);
+  }, [defaultAnonymizationEntityLabel, defaultTextDirection]);
 
   const closeRegionEditor = useCallback(() => {
     if (hasDialogChanges) {
@@ -221,7 +235,9 @@ export function useRegionEditor({
     }
 
     const nextLabel = dialogDraftLabel.trim() || activeRegion.label;
-    const nextBbox = dialogDraftBbox ?? activeRegion.bbox;
+    const nextBbox = isBboxStructuralEditingEnabled
+      ? dialogDraftBbox ?? activeRegion.bbox
+      : activeRegion.bbox;
     const nextText = dialogDraftText;
     const nextEntities = normalizeEntitySpansForText(dialogDraftEntities, nextText);
 
@@ -244,6 +260,7 @@ export function useRegionEditor({
     dialogDraftEntities,
     dialogDraftLabel,
     dialogDraftText,
+    isBboxStructuralEditingEnabled,
     onOverlayDocumentSaved,
     onOverlayEditStarted,
     overlayDocument
@@ -281,12 +298,12 @@ export function useRegionEditor({
   );
 
   const canPasteCopiedBboxIntoRegion = useMemo(
-    () => Boolean(activeRegion && copiedBbox),
-    [activeRegion, copiedBbox]
+    () => Boolean(activeRegion && copiedBbox && isBboxStructuralEditingEnabled),
+    [activeRegion, copiedBbox, isBboxStructuralEditingEnabled]
   );
 
   const handlePasteCopiedBboxIntoRegion = useCallback(() => {
-    if (!activeRegion || !copiedBbox) {
+    if (!isBboxStructuralEditingEnabled || !activeRegion || !copiedBbox) {
       return;
     }
 
@@ -299,10 +316,13 @@ export function useRegionEditor({
     setPickerSelection(null);
     setSpanEditor(null);
     setEntityWarning(null);
-  }, [activeRegion, copiedBbox]);
+  }, [activeRegion, copiedBbox, isBboxStructuralEditingEnabled]);
 
   const deleteRegionWithCanonicalFlow = useCallback(
     (region: OverlayRegion) => {
+      if (!isBboxStructuralEditingEnabled) {
+        return;
+      }
       if (!overlayDocument || !onOverlayDocumentSaved) {
         return;
       }
@@ -326,7 +346,14 @@ export function useRegionEditor({
         closeAndResetEditor();
       }
     },
-    [activeRegionId, closeAndResetEditor, onOverlayDocumentSaved, onOverlayEditStarted, overlayDocument]
+    [
+      activeRegionId,
+      closeAndResetEditor,
+      isBboxStructuralEditingEnabled,
+      onOverlayDocumentSaved,
+      onOverlayEditStarted,
+      overlayDocument
+    ]
   );
 
   const handleDeleteRegionEditor = useCallback(() => {
@@ -430,11 +457,11 @@ export function useRegionEditor({
         setEntityWarning("Choose an entity label.");
         return;
       }
-      const nextEntity = coerceEntityLabel(pendingEntityTrimmed);
-      if (nextEntity !== pendingEntityTrimmed) {
+      if (!anonymizationEntityLabels.includes(pendingEntityTrimmed)) {
         setEntityWarning("Choose an entity label.");
         return;
       }
+      const nextEntity = coerceEntityLabel(pendingEntityTrimmed);
 
       if (hasEntityOverlap(normalizedDraftEntities, pickerSelection.start, pickerSelection.end)) {
         setEntityWarning("Overlapping anonymized spans are not allowed.");
@@ -455,7 +482,7 @@ export function useRegionEditor({
       setPickerSelection(null);
       setEntityWarning(null);
     },
-    [normalizedDraftEntities, pendingEntity, pickerSelection, previewModel]
+    [anonymizationEntityLabels, normalizedDraftEntities, pendingEntity, pickerSelection, previewModel]
   );
 
   const handlePendingEntityChange = useCallback(
@@ -506,11 +533,12 @@ export function useRegionEditor({
         return;
       }
 
-      const nextEntity = coerceEntityLabel((entityOverride ?? spanEditor.entity).trim());
-      if (!nextEntity) {
+      const nextEntityInput = (entityOverride ?? spanEditor.entity).trim();
+      if (!anonymizationEntityLabels.includes(nextEntityInput)) {
         setEntityWarning("Choose an entity for the highlighted range.");
         return;
       }
+      const nextEntity = coerceEntityLabel(nextEntityInput);
 
       const nextSpans = normalizedDraftEntities.map((span, index) =>
         index === spanEditor.index
@@ -526,7 +554,7 @@ export function useRegionEditor({
       setSpanEditor(null);
       setEntityWarning(null);
     },
-    [normalizedDraftEntities, spanEditor]
+    [anonymizationEntityLabels, normalizedDraftEntities, spanEditor]
   );
 
   const handleSpanEditorEntityChange = useCallback(
@@ -597,8 +625,8 @@ export function useRegionEditor({
     dialogLabelOptions,
     hasDialogChanges,
     canPasteCopiedBboxIntoRegion,
-    anonymizationEntityLabels: ANONYMIZATION_ENTITY_LABELS,
-    buildEntityPalette,
+    anonymizationEntityLabels,
+    buildEntityPalette: (entity: string) => buildEntityPalette(entity, anonymizationEntityLabels),
     openRegionEditor,
     closeRegionEditor,
     handleResetRegionEditor,
@@ -625,6 +653,6 @@ export function useRegionEditor({
     setSpanEditor,
     setPickerSelection,
     setEntityWarning,
-    coerceEntityLabel
+    coerceEntityLabel: (value: unknown) => coerceEntityLabel(value, anonymizationEntityLabels)
   };
 }

@@ -8,6 +8,7 @@ import type { BboxClipboardPayload, UseBboxClipboardOptions } from "./useBboxCli
 export function useBboxClipboard({
   overlayDocument,
   currentPage,
+  isBboxStructuralEditingEnabled,
   onOverlayEditStarted,
   onOverlayDocumentSaved
 }: UseBboxClipboardOptions) {
@@ -16,15 +17,18 @@ export function useBboxClipboard({
   const hasCopiedBbox = useMemo(() => copiedBbox !== null, [copiedBbox]);
 
   const copyBbox = useCallback((region: OverlayRegion) => {
+    if (!isBboxStructuralEditingEnabled) {
+      return;
+    }
     setCopiedBbox(buildBboxClipboardPayload(region));
-  }, []);
+  }, [isBboxStructuralEditingEnabled]);
 
   const copyTextOnly = useCallback(async (region: OverlayRegion) => {
     await writeTextToClipboard(region.text || "");
   }, []);
 
   const pasteCopiedBbox = useCallback(() => {
-    if (!copiedBbox || !overlayDocument || !onOverlayDocumentSaved) {
+    if (!isBboxStructuralEditingEnabled || !copiedBbox || !overlayDocument || !onOverlayDocumentSaved) {
       return;
     }
 
@@ -47,7 +51,14 @@ export function useBboxClipboard({
 
     onOverlayEditStarted?.();
     onOverlayDocumentSaved(addRegionToDocument(overlayDocument, currentPage, nextRegion));
-  }, [copiedBbox, currentPage, onOverlayDocumentSaved, onOverlayEditStarted, overlayDocument]);
+  }, [
+    copiedBbox,
+    currentPage,
+    isBboxStructuralEditingEnabled,
+    onOverlayDocumentSaved,
+    onOverlayEditStarted,
+    overlayDocument
+  ]);
 
   return {
     copiedBbox,

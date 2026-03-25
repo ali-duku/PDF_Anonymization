@@ -9,6 +9,11 @@ import {
 import { APP_META } from "../../appMeta";
 import { annotationService } from "../../services/annotationService";
 import { jsonService } from "../../services/jsonService";
+import {
+  ENTITY_PROFILE_OPTIONS,
+  getAnonymizationEntityLabels,
+  getDefaultAnonymizationEntityLabel
+} from "../../constants/anonymizationEntities";
 import { pdfRetrievalService } from "../../features/pdf/services/pdfRetrievalService";
 import { Header } from "../../components/general/Header/Header";
 import type { AppTab } from "../../components/general/TabNav/TabNav.types";
@@ -32,7 +37,13 @@ const LazyPdfWorkspaceTab = lazy(async () => {
 export function AppPage({ services }: AppPageProps) {
   const [activeTab, setActiveTab] = useState<AppTab>("viewer");
   const setupGenerateHandlerRef = useRef<(() => void) | null>(null);
-  const { settings, setFontSize } = useDisplaySettings();
+  const {
+    settings,
+    setFontSize,
+    setActiveEntityProfileId,
+    setDefaultTextDirection,
+    setIsBboxStructuralEditingEnabled
+  } = useDisplaySettings();
 
   const {
     overlaySession,
@@ -63,6 +74,14 @@ export function AppPage({ services }: AppPageProps) {
   );
 
   const setupOverlaySession = activeTab === "setup" ? overlaySession : null;
+  const activeAnonymizationEntityLabels = useMemo(
+    () => getAnonymizationEntityLabels(settings.activeEntityProfileId),
+    [settings.activeEntityProfileId]
+  );
+  const defaultAnonymizationEntityLabel = useMemo(
+    () => getDefaultAnonymizationEntityLabel(settings.activeEntityProfileId),
+    [settings.activeEntityProfileId]
+  );
 
   useOverlayHistoryShortcuts({
     canUndo: canUndoOverlay,
@@ -110,6 +129,17 @@ export function AppPage({ services }: AppPageProps) {
         onRedo={redoOverlay}
         fontSize={settings.fontSize}
         onFontSizeChange={setFontSize}
+        activeEntityProfileId={settings.activeEntityProfileId}
+        entityProfileOptions={ENTITY_PROFILE_OPTIONS}
+        onActiveEntityProfileChange={setActiveEntityProfileId}
+        defaultTextDirection={settings.defaultTextDirection}
+        onToggleDefaultTextDirection={() => {
+          setDefaultTextDirection(settings.defaultTextDirection === "rtl" ? "ltr" : "rtl");
+        }}
+        isBboxStructuralEditingEnabled={settings.isBboxStructuralEditingEnabled}
+        onToggleBboxStructuralEditing={() => {
+          setIsBboxStructuralEditingEnabled(!settings.isBboxStructuralEditingEnabled);
+        }}
         canManualSave={canManualSaveOverlay}
         canUndo={canUndoOverlay}
         canRedo={canRedoOverlay}
@@ -126,6 +156,10 @@ export function AppPage({ services }: AppPageProps) {
               pdfRetrievalService={resolvedPdfRetrievalService}
               overlayDocument={overlaySession?.document ?? null}
               overlaySaveState={overlaySession?.saveState ?? null}
+              anonymizationEntityLabels={activeAnonymizationEntityLabels}
+              defaultAnonymizationEntityLabel={defaultAnonymizationEntityLabel}
+              defaultTextDirection={settings.defaultTextDirection}
+              isBboxStructuralEditingEnabled={settings.isBboxStructuralEditingEnabled}
               onOverlayEditStarted={markOverlayEditStarted}
               onOverlayDocumentSaved={saveOverlayDocument}
               onClearOverlaySessionForDocumentSwitch={resetOverlaySessionForDocumentSwitch}

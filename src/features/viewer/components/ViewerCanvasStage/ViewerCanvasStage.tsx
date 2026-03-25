@@ -9,6 +9,7 @@ function ViewerCanvasStageComponent({
   pageHeight,
   visiblePageOverlays,
   isCreateMode,
+  isBboxStructuralEditingEnabled,
   interactionRegionId,
   canvasContainerRef,
   pageStageRef,
@@ -50,6 +51,7 @@ function ViewerCanvasStageComponent({
             visiblePageOverlays={visiblePageOverlays}
             interactionRegionId={interactionRegionId}
             isCreateMode={isCreateMode}
+            isBboxStructuralEditingEnabled={isBboxStructuralEditingEnabled}
             onBeginCreateBBox={onBeginCreateBBox}
             onBeginInteraction={onBeginInteraction}
             onOpenRegionEditor={onOpenRegionEditor}

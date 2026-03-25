@@ -8,6 +8,7 @@ export interface ViewerCanvasStageProps {
   pageHeight: number;
   visiblePageOverlays: OverlayRegion[];
   isCreateMode: boolean;
+  isBboxStructuralEditingEnabled: boolean;
   interactionRegionId: string | null;
   canvasContainerRef: RefObject<HTMLDivElement>;
   pageStageRef: RefObject<HTMLDivElement>;

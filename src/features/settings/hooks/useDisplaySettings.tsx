@@ -12,17 +12,35 @@ import {
   DISPLAY_SETTINGS_STORAGE_KEY,
   FONT_SIZE_SCALE_BY_OPTION
 } from "../constants/displaySettings";
+import type { EntityProfileId } from "../../../types/anonymizationProfiles";
+import type { TextDirection } from "../../../types/textDirection";
 import { FONT_SIZE_OPTIONS, type DisplaySettings, type FontSizeOption } from "../../../types/displaySettings";
+import { ENTITY_PROFILES } from "../../../constants/anonymizationEntities";
 
 interface DisplaySettingsContextValue {
   settings: DisplaySettings;
   setFontSize: (fontSize: FontSizeOption) => void;
+  setActiveEntityProfileId: (profileId: EntityProfileId) => void;
+  setDefaultTextDirection: (direction: TextDirection) => void;
+  setIsBboxStructuralEditingEnabled: (isEnabled: boolean) => void;
 }
 
 const DisplaySettingsContext = createContext<DisplaySettingsContextValue | null>(null);
 
 function isFontSizeOption(value: unknown): value is FontSizeOption {
   return typeof value === "number" && FONT_SIZE_OPTIONS.includes(value as FontSizeOption);
+}
+
+function isTextDirection(value: unknown): value is TextDirection {
+  return value === "rtl" || value === "ltr";
+}
+
+function isEntityProfileId(value: unknown): value is EntityProfileId {
+  return typeof value === "string" && value in ENTITY_PROFILES;
+}
+
+function isBoolean(value: unknown): value is boolean {
+  return typeof value === "boolean";
 }
 
 function readPersistedDisplaySettings(): DisplaySettings {
@@ -37,11 +55,20 @@ function readPersistedDisplaySettings(): DisplaySettings {
     }
 
     const parsed = JSON.parse(raw) as Partial<DisplaySettings>;
-    if (!isFontSizeOption(parsed.fontSize)) {
-      return DEFAULT_DISPLAY_SETTINGS;
-    }
-
-    return { fontSize: parsed.fontSize };
+    return {
+      fontSize: isFontSizeOption(parsed.fontSize)
+        ? parsed.fontSize
+        : DEFAULT_DISPLAY_SETTINGS.fontSize,
+      activeEntityProfileId: isEntityProfileId(parsed.activeEntityProfileId)
+        ? parsed.activeEntityProfileId
+        : DEFAULT_DISPLAY_SETTINGS.activeEntityProfileId,
+      defaultTextDirection: isTextDirection(parsed.defaultTextDirection)
+        ? parsed.defaultTextDirection
+        : DEFAULT_DISPLAY_SETTINGS.defaultTextDirection,
+      isBboxStructuralEditingEnabled: isBoolean(parsed.isBboxStructuralEditingEnabled)
+        ? parsed.isBboxStructuralEditingEnabled
+        : DEFAULT_DISPLAY_SETTINGS.isBboxStructuralEditingEnabled
+    };
   } catch {
     return DEFAULT_DISPLAY_SETTINGS;
   }
@@ -58,6 +85,42 @@ export function DisplaySettingsProvider({ children }: PropsWithChildren) {
       return {
         ...previous,
         fontSize
+      };
+    });
+  }, []);
+
+  const setActiveEntityProfileId = useCallback((activeEntityProfileId: EntityProfileId) => {
+    setSettings((previous) => {
+      if (previous.activeEntityProfileId === activeEntityProfileId) {
+        return previous;
+      }
+      return {
+        ...previous,
+        activeEntityProfileId
+      };
+    });
+  }, []);
+
+  const setDefaultTextDirection = useCallback((defaultTextDirection: TextDirection) => {
+    setSettings((previous) => {
+      if (previous.defaultTextDirection === defaultTextDirection) {
+        return previous;
+      }
+      return {
+        ...previous,
+        defaultTextDirection
+      };
+    });
+  }, []);
+
+  const setIsBboxStructuralEditingEnabled = useCallback((isBboxStructuralEditingEnabled: boolean) => {
+    setSettings((previous) => {
+      if (previous.isBboxStructuralEditingEnabled === isBboxStructuralEditingEnabled) {
+        return previous;
+      }
+      return {
+        ...previous,
+        isBboxStructuralEditingEnabled
       };
     });
   }, []);
@@ -79,9 +142,12 @@ export function DisplaySettingsProvider({ children }: PropsWithChildren) {
   const value = useMemo<DisplaySettingsContextValue>(
     () => ({
       settings,
-      setFontSize
+      setFontSize,
+      setActiveEntityProfileId,
+      setDefaultTextDirection,
+      setIsBboxStructuralEditingEnabled
     }),
-    [settings, setFontSize]
+    [settings, setFontSize, setActiveEntityProfileId, setDefaultTextDirection, setIsBboxStructuralEditingEnabled]
   );
 
   return <DisplaySettingsContext.Provider value={value}>{children}</DisplaySettingsContext.Provider>;

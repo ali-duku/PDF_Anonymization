@@ -12,7 +12,7 @@ import type { RegionEditorModalProps } from "./RegionEditorModal.types";
 const MIN_SNIPPET_ZOOM = 0.5;
 const MAX_SNIPPET_ZOOM = 4;
 const SNIPPET_ZOOM_STEP = 0.25;
-const DEFAULT_SNIPPET_ZOOM = 0.5;
+const DEFAULT_SNIPPET_ZOOM = 0.75;
 
 function clampSnippetZoom(value: number): number {
   return Math.min(MAX_SNIPPET_ZOOM, Math.max(MIN_SNIPPET_ZOOM, value));
@@ -62,6 +62,7 @@ function RegionEditorModalComponent({
   onReset,
   onDelete,
   onCopyRegion,
+  isBboxStructuralEditingEnabled,
   hasCopiedBbox,
   onPasteRegionFromClipboard,
   onCopyRegionText
@@ -394,6 +395,7 @@ function RegionEditorModalComponent({
               type="button"
               className={styles.buttonSecondary}
               onClick={() => onCopyRegion(activeRegion)}
+              disabled={!isBboxStructuralEditingEnabled}
             >
               Copy BBox
             </button>
@@ -401,7 +403,7 @@ function RegionEditorModalComponent({
               type="button"
               className={styles.buttonSecondary}
               onClick={onPasteRegionFromClipboard}
-              disabled={!hasCopiedBbox}
+              disabled={!isBboxStructuralEditingEnabled || !hasCopiedBbox}
             >
               Paste BBox
             </button>
@@ -418,7 +420,12 @@ function RegionEditorModalComponent({
             <button type="button" className={styles.buttonSecondary} onClick={onReset}>
               Reset
             </button>
-            <button type="button" className={styles.buttonDanger} onClick={onDelete}>
+            <button
+              type="button"
+              className={styles.buttonDanger}
+              onClick={onDelete}
+              disabled={!isBboxStructuralEditingEnabled}
+            >
               Delete
             </button>
             <button type="button" className={styles.buttonPrimary} onClick={onClose}>

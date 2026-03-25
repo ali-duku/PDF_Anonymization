@@ -17,6 +17,7 @@ function OverlayBoxComponent({
   isEditing,
   isCreateDraftRegion,
   isCreateMode,
+  isBboxStructuralEditingEnabled,
   resizeHandles,
   onBeginInteraction,
   onOpenRegionEditor,
@@ -35,7 +36,12 @@ function OverlayBoxComponent({
     >
       <div
         className={styles.overlayDragSurface}
-        onPointerDown={(event) => onBeginInteraction(event, region, "drag")}
+        onPointerDown={(event) => {
+          if (!isBboxStructuralEditingEnabled) {
+            return;
+          }
+          onBeginInteraction(event, region, "drag");
+        }}
         onDoubleClick={() => {
           if (isCreateMode || isCreateDraftRegion) {
             return;
@@ -54,6 +60,7 @@ function OverlayBoxComponent({
               className={`${styles.overlayResizeHandle} ${HANDLE_CLASS_MAP[handle]}`}
               onPointerDown={(event) => onBeginInteraction(event, region, handle)}
               onClick={(event) => event.preventDefault()}
+              disabled={!isBboxStructuralEditingEnabled}
               aria-label={`Resize ${region.label} region (${handle.toUpperCase()})`}
             />
           ))}
@@ -94,6 +101,7 @@ function OverlayBoxComponent({
                 }
                 onCopyRegion(region);
               }}
+              disabled={!isBboxStructuralEditingEnabled}
               aria-label={`Copy ${region.label} region`}
               title="Copy bbox"
             >
@@ -167,6 +175,7 @@ function OverlayBoxComponent({
                 }
                 onDeleteRegion(region);
               }}
+              disabled={!isBboxStructuralEditingEnabled}
               aria-label={`Delete ${region.label} region`}
               title="Delete"
             >

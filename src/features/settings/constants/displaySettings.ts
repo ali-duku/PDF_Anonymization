@@ -1,9 +1,13 @@
 import type { DisplaySettings, FontSizeOption } from "../../../types/displaySettings";
+import { DEFAULT_ENTITY_PROFILE_ID } from "../../../constants/anonymizationEntities";
 
 export const DISPLAY_SETTINGS_STORAGE_KEY = "anonymizer.displaySettings.v1";
 
 export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
-  fontSize: 1
+  fontSize: 1,
+  activeEntityProfileId: DEFAULT_ENTITY_PROFILE_ID,
+  defaultTextDirection: "rtl",
+  isBboxStructuralEditingEnabled: true
 };
 
 export const FONT_SIZE_SCALE_BY_OPTION: Record<FontSizeOption, number> = {

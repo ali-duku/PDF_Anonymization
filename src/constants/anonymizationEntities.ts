@@ -1,6 +1,13 @@
-﻿import type { OverlayEntitySpan } from "../types/overlay";
+import type { EntityProfileId } from "../types/anonymizationProfiles";
+import type { OverlayEntitySpan } from "../types/overlay";
 
-export const ANONYMIZATION_ENTITY_LABELS = [
+interface EntityProfileConfig {
+  id: EntityProfileId;
+  displayName: string;
+  entityLabels: readonly string[];
+}
+
+const MOJ_SHOUR_HUMAN_POC_ENTITY_LABELS = [
   "رقم الهوية الشخصية",
   "رقم الجوال",
   "رقم الهاتف",
@@ -13,18 +20,71 @@ export const ANONYMIZATION_ENTITY_LABELS = [
   "رقم جواز السفر",
   "التوقيع",
   "رقم الآيبان",
-  "صورة جواز السفر",
+  "صورة جواز السفر"
 ] as const;
 
-export type AnonymizationEntityLabel =
-  (typeof ANONYMIZATION_ENTITY_LABELS)[number];
+const HMC_ANONYMISATION_HANDOFF_ENTITY_LABELS = [
+  "Patient Name",
+  "Qatar ID",
+  "HC Number",
+  "Fin",
+  "Physician ID",
+  "Physician Name",
+  "Phone Number"
+] as const;
 
-export const FALLBACK_ANONYMIZATION_ENTITY_LABEL: AnonymizationEntityLabel =
-  ANONYMIZATION_ENTITY_LABELS[ANONYMIZATION_ENTITY_LABELS.length - 1];
-export const DEFAULT_ANONYMIZATION_ENTITY_LABEL: AnonymizationEntityLabel =
-  ANONYMIZATION_ENTITY_LABELS[0];
+export const ENTITY_PROFILES: Record<EntityProfileId, EntityProfileConfig> = {
+  "moj-shour_human-poc": {
+    id: "moj-shour_human-poc",
+    displayName: "MoJ Shour Human Review",
+    entityLabels: MOJ_SHOUR_HUMAN_POC_ENTITY_LABELS
+  },
+  HMC_anonymisation_handoff: {
+    id: "HMC_anonymisation_handoff",
+    displayName: "HMC Anonymisation Handoff",
+    entityLabels: HMC_ANONYMISATION_HANDOFF_ENTITY_LABELS
+  }
+};
 
-export function coerceEntityLabel(value: unknown): AnonymizationEntityLabel {
+export const ENTITY_PROFILE_OPTIONS = Object.values(ENTITY_PROFILES).map((profile) => ({
+  id: profile.id,
+  displayName: profile.displayName
+}));
+
+export const DEFAULT_ENTITY_PROFILE_ID: EntityProfileId = "moj-shour_human-poc";
+
+const FALLBACK_ENTITY_LABEL = "???";
+
+export const ALL_ANONYMIZATION_ENTITY_LABELS = [
+  ...MOJ_SHOUR_HUMAN_POC_ENTITY_LABELS,
+  ...HMC_ANONYMISATION_HANDOFF_ENTITY_LABELS
+] as const;
+
+export type AnonymizationEntityLabel = (typeof ALL_ANONYMIZATION_ENTITY_LABELS)[number] | typeof FALLBACK_ENTITY_LABEL;
+
+export const ANONYMIZATION_ENTITY_LABELS = ENTITY_PROFILES[DEFAULT_ENTITY_PROFILE_ID].entityLabels;
+
+export const FALLBACK_ANONYMIZATION_ENTITY_LABEL: AnonymizationEntityLabel = FALLBACK_ENTITY_LABEL;
+
+export const DEFAULT_ANONYMIZATION_ENTITY_LABEL: string =
+  ENTITY_PROFILES[DEFAULT_ENTITY_PROFILE_ID].entityLabels[0] ?? FALLBACK_ANONYMIZATION_ENTITY_LABEL;
+
+export function getAnonymizationEntityLabels(profileId: EntityProfileId): readonly string[] {
+  return ENTITY_PROFILES[profileId].entityLabels;
+}
+
+export function getDefaultAnonymizationEntityLabel(profileId: EntityProfileId): string {
+  return ENTITY_PROFILES[profileId].entityLabels[0] ?? FALLBACK_ANONYMIZATION_ENTITY_LABEL;
+}
+
+function resolveCatalog(catalog?: readonly string[]): readonly string[] {
+  if (!catalog || catalog.length === 0) {
+    return ALL_ANONYMIZATION_ENTITY_LABELS;
+  }
+  return catalog;
+}
+
+export function coerceEntityLabel(value: unknown, catalog?: readonly string[]): string {
   if (typeof value !== "string") {
     return FALLBACK_ANONYMIZATION_ENTITY_LABEL;
   }
@@ -32,21 +92,19 @@ export function coerceEntityLabel(value: unknown): AnonymizationEntityLabel {
   if (!trimmed) {
     return FALLBACK_ANONYMIZATION_ENTITY_LABEL;
   }
-  return ANONYMIZATION_ENTITY_LABELS.includes(
-    trimmed as AnonymizationEntityLabel,
-  )
-    ? (trimmed as AnonymizationEntityLabel)
-    : FALLBACK_ANONYMIZATION_ENTITY_LABEL;
+
+  const labels = resolveCatalog(catalog);
+  return labels.includes(trimmed) ? trimmed : FALLBACK_ANONYMIZATION_ENTITY_LABEL;
 }
 
 export function sortEntitySpans(
-  spans: readonly OverlayEntitySpan[],
+  spans: readonly OverlayEntitySpan[]
 ): OverlayEntitySpan[] {
   return [...spans].sort(
     (left, right) =>
       left.start - right.start ||
       left.end - right.end ||
-      left.entity.localeCompare(right.entity),
+      left.entity.localeCompare(right.entity)
   );
 }
 
@@ -54,7 +112,7 @@ export function hasEntityOverlap(
   spans: readonly OverlayEntitySpan[],
   nextStart: number,
   nextEnd: number,
-  ignoreIndex?: number,
+  ignoreIndex?: number
 ): boolean {
   return spans.some((span, index) => {
     if (ignoreIndex !== undefined && index === ignoreIndex) {
@@ -67,6 +125,7 @@ export function hasEntityOverlap(
 export function normalizeEntitySpansForText(
   spansValue: readonly OverlayEntitySpan[] | unknown,
   text: string,
+  catalog?: readonly string[]
 ): OverlayEntitySpan[] {
   if (!Array.isArray(spansValue)) {
     return [];
@@ -95,7 +154,7 @@ export function normalizeEntitySpansForText(
     candidateSpans.push({
       start,
       end,
-      entity: coerceEntityLabel(span.entity),
+      entity: coerceEntityLabel(span.entity, catalog)
     });
   }
 
@@ -110,12 +169,12 @@ export function normalizeEntitySpansForText(
   return normalized;
 }
 
-export function buildEntityPalette(entity: string): {
+export function buildEntityPalette(entity: string, catalog?: readonly string[]): {
   background: string;
   text: string;
   border: string;
 } {
-  const safeEntity = coerceEntityLabel(entity);
+  const safeEntity = coerceEntityLabel(entity, catalog);
   let hash = 0;
   for (let index = 0; index < safeEntity.length; index += 1) {
     hash = (hash * 33 + safeEntity.charCodeAt(index)) >>> 0;
@@ -124,6 +183,6 @@ export function buildEntityPalette(entity: string): {
   return {
     background: `hsl(${hue} 85% 64% / 0.35)`,
     text: `hsl(${hue} 70% 86%)`,
-    border: `hsl(${hue} 85% 58% / 0.95)`,
+    border: `hsl(${hue} 85% 58% / 0.95)`
   };
 }

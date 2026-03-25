@@ -42,6 +42,7 @@ interface UseOverlayInteractionsOptions {
   pageWidth: number;
   pageHeight: number;
   isCreateMode: boolean;
+  isBboxStructuralEditingEnabled: boolean;
   overlayDocument: OverlayDocument | null;
   onOverlayEditStarted?: () => void;
   onOverlayDocumentSaved?: (document: OverlayDocument) => void;
@@ -73,6 +74,7 @@ export function useOverlayInteractions({
   pageWidth,
   pageHeight,
   isCreateMode,
+  isBboxStructuralEditingEnabled,
   overlayDocument,
   onOverlayEditStarted,
   onOverlayDocumentSaved
@@ -91,7 +93,13 @@ export function useOverlayInteractions({
       region: OverlayRegion,
       mode: OverlayInteractionMode
     ) => {
-      if (isCreateMode || !overlayDocument || pageWidth <= 0 || pageHeight <= 0) {
+      if (
+        !isBboxStructuralEditingEnabled ||
+        isCreateMode ||
+        !overlayDocument ||
+        pageWidth <= 0 ||
+        pageHeight <= 0
+      ) {
         return;
       }
 
@@ -120,7 +128,7 @@ export function useOverlayInteractions({
         bbox: region.bbox
       });
     },
-    [isCreateMode, overlayDocument, pageHeight, pageStageRef, pageWidth]
+    [isBboxStructuralEditingEnabled, isCreateMode, overlayDocument, pageHeight, pageStageRef, pageWidth]
   );
 
   useEffect(() => {
@@ -157,7 +165,7 @@ export function useOverlayInteractions({
           : interaction.startBbox;
       const bboxChanged = hasBboxChanged(interaction.startBbox, nextBbox, BBOX_CHANGE_EPSILON);
 
-      if (bboxChanged && overlayDocument && onOverlayDocumentSaved) {
+      if (bboxChanged && isBboxStructuralEditingEnabled && overlayDocument && onOverlayDocumentSaved) {
         onOverlayEditStarted?.();
         const nextDocument = applyRegionBbox(
           overlayDocument,
@@ -182,7 +190,23 @@ export function useOverlayInteractions({
       window.removeEventListener("pointerup", handleInteractionEnd);
       window.removeEventListener("pointercancel", handleInteractionEnd);
     };
-  }, [interaction, onOverlayDocumentSaved, onOverlayEditStarted, overlayDocument, pageStageRef]);
+  }, [
+    interaction,
+    isBboxStructuralEditingEnabled,
+    onOverlayDocumentSaved,
+    onOverlayEditStarted,
+    overlayDocument,
+    pageStageRef
+  ]);
+
+  useEffect(() => {
+    if (isBboxStructuralEditingEnabled) {
+      return;
+    }
+    setInteraction(null);
+    setDraft(null);
+    draftRef.current = null;
+  }, [isBboxStructuralEditingEnabled]);
 
   const resetOverlayInteractionState = useCallback(() => {
     setInteraction(null);

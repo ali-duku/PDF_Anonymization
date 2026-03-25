@@ -1,6 +1,9 @@
 import { Suspense, lazy, memo, useState } from "react";
+import { BboxStructuralEditingControl } from "../BboxStructuralEditingControl/BboxStructuralEditingControl";
+import { EntityProfileControl } from "../EntityProfileControl/EntityProfileControl";
 import { FontSizeControl } from "../FontSizeControl/FontSizeControl";
 import { TabNav } from "../TabNav/TabNav";
+import { TextDirectionControl } from "../TextDirectionControl/TextDirectionControl";
 import styles from "./Header.module.css";
 import type { HeaderProps } from "./Header.types";
 
@@ -19,6 +22,13 @@ function HeaderComponent({
   onRedo,
   fontSize,
   onFontSizeChange,
+  activeEntityProfileId,
+  entityProfileOptions,
+  onActiveEntityProfileChange,
+  defaultTextDirection,
+  onToggleDefaultTextDirection,
+  isBboxStructuralEditingEnabled,
+  onToggleBboxStructuralEditing,
   canManualSave = false,
   canUndo = false,
   canRedo = false
@@ -69,6 +79,16 @@ function HeaderComponent({
               Redo
             </button>
           </div>
+          <EntityProfileControl
+            value={activeEntityProfileId}
+            options={entityProfileOptions}
+            onChange={onActiveEntityProfileChange}
+          />
+          <BboxStructuralEditingControl
+            value={isBboxStructuralEditingEnabled}
+            onToggle={onToggleBboxStructuralEditing}
+          />
+          <TextDirectionControl value={defaultTextDirection} onToggle={onToggleDefaultTextDirection} />
           <FontSizeControl value={fontSize} onChange={onFontSizeChange} />
           <span className={styles.versionBadge} aria-label={`Version ${appMeta.version}`}>
             Version {appMeta.version}

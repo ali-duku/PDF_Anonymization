@@ -9,6 +9,7 @@ function ViewerToolbarComponent({
   zoom,
   isCreateMode,
   canCreateBbox,
+  isBboxStructuralEditingEnabled,
   hasCopiedBbox,
   recordSummary,
   overlayCount,
@@ -112,6 +113,7 @@ function ViewerToolbarComponent({
             onClick={onToggleCreateMode}
             disabled={!hasPdf || !canCreateBbox}
             aria-pressed={isCreateMode}
+            title={!isBboxStructuralEditingEnabled ? "BBox structural editing is disabled." : undefined}
           >
             {isCreateMode ? "Cancel Add BBox" : "Add BBox"}
           </button>
@@ -120,6 +122,7 @@ function ViewerToolbarComponent({
             className={styles.buttonSecondary}
             onClick={onPasteCopiedBbox}
             disabled={!hasPdf || !canCreateBbox || !hasCopiedBbox}
+            title={!isBboxStructuralEditingEnabled ? "BBox structural editing is disabled." : undefined}
           >
             Paste
           </button>

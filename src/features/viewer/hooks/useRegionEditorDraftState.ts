@@ -1,12 +1,12 @@
 import {
   useCallback,
+  useEffect,
   useRef,
   useState,
   type Dispatch,
   type MutableRefObject,
   type SetStateAction
 } from "react";
-import { DEFAULT_ANONYMIZATION_ENTITY_LABEL } from "../../../constants/anonymizationEntities";
 import type { NormalizedBbox, OverlayEntitySpan } from "../../../types/overlay";
 import type { PendingSelectionRange } from "../utils/textEntities";
 import type { SpanEditorDraft, TextDirection } from "./useRegionEditor.types";
@@ -39,7 +39,17 @@ export interface RegionEditorDraftState {
   resetDraftState: () => void;
 }
 
-export function useRegionEditorDraftState(): RegionEditorDraftState {
+interface UseRegionEditorDraftStateOptions {
+  defaultAnonymizationEntityLabel: string;
+  defaultTextDirection: TextDirection;
+}
+
+export function useRegionEditorDraftState({
+  defaultAnonymizationEntityLabel,
+  defaultTextDirection
+}: UseRegionEditorDraftStateOptions): RegionEditorDraftState {
+  const defaultAnonymizationEntityLabelRef = useRef(defaultAnonymizationEntityLabel);
+  const defaultTextDirectionRef = useRef(defaultTextDirection);
   const dialogTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const dialogPreviewRef = useRef<HTMLDivElement | null>(null);
   const [activeRegionId, setActiveRegionId] = useState<string | null>(null);
@@ -47,21 +57,29 @@ export function useRegionEditorDraftState(): RegionEditorDraftState {
   const [dialogDraftText, setDialogDraftText] = useState("");
   const [dialogDraftEntities, setDialogDraftEntities] = useState<OverlayEntitySpan[]>([]);
   const [dialogDraftBbox, setDialogDraftBbox] = useState<NormalizedBbox | null>(null);
-  const [dialogTextDirection, setDialogTextDirection] = useState<TextDirection>("rtl");
+  const [dialogTextDirection, setDialogTextDirection] = useState<TextDirection>(defaultTextDirection);
   const [pendingSelection, setPendingSelection] = useState<PendingSelectionRange | null>(null);
-  const [pendingEntity, setPendingEntity] = useState<string>(DEFAULT_ANONYMIZATION_ENTITY_LABEL);
+  const [pendingEntity, setPendingEntity] = useState<string>(defaultAnonymizationEntityLabel);
   const [pickerSelection, setPickerSelection] = useState<PendingSelectionRange | null>(null);
   const [spanEditor, setSpanEditor] = useState<SpanEditorDraft | null>(null);
   const [entityWarning, setEntityWarning] = useState<string | null>(null);
+
+  useEffect(() => {
+    defaultAnonymizationEntityLabelRef.current = defaultAnonymizationEntityLabel;
+  }, [defaultAnonymizationEntityLabel]);
+
+  useEffect(() => {
+    defaultTextDirectionRef.current = defaultTextDirection;
+  }, [defaultTextDirection]);
 
   const resetDraftState = useCallback(() => {
     setDialogDraftLabel("");
     setDialogDraftText("");
     setDialogDraftEntities([]);
     setDialogDraftBbox(null);
-    setDialogTextDirection("rtl");
+    setDialogTextDirection(defaultTextDirectionRef.current);
     setPendingSelection(null);
-    setPendingEntity(DEFAULT_ANONYMIZATION_ENTITY_LABEL);
+    setPendingEntity(defaultAnonymizationEntityLabelRef.current);
     setPickerSelection(null);
     setSpanEditor(null);
     setEntityWarning(null);

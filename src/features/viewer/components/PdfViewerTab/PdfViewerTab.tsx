@@ -6,7 +6,6 @@ import { usePageRegionNavigation } from "../../hooks/usePageRegionNavigation";
 import { usePdfDocument } from "../../hooks/usePdfDocument";
 import { useRegionEditor } from "../../hooks/useRegionEditor";
 import { useRegionSnippet } from "../../hooks/useRegionSnippet";
-import { useViewerAutoFit } from "../../hooks/useViewerAutoFit";
 import { buildVisiblePageOverlays } from "../../utils/visiblePageOverlays";
 import {
   buildRecordSummary,
@@ -32,6 +31,10 @@ function PdfViewerTabComponent({
   onRetryRetrieval,
   overlayDocument = null,
   overlaySaveState = null,
+  anonymizationEntityLabels,
+  defaultAnonymizationEntityLabel,
+  defaultTextDirection,
+  isBboxStructuralEditingEnabled,
   onOverlayEditStarted,
   onOverlayDocumentSaved
 }: PdfViewerTabProps) {
@@ -50,6 +53,7 @@ function PdfViewerTabComponent({
     pageWidth: pdfState.pageWidth,
     pageHeight: pdfState.pageHeight,
     pdfDoc: pdfState.pdfDoc,
+    isBboxStructuralEditingEnabled,
     overlayDocument,
     onOverlayEditStarted,
     onOverlayDocumentSaved
@@ -65,6 +69,7 @@ function PdfViewerTabComponent({
     pageWidth: pdfState.pageWidth,
     pageHeight: pdfState.pageHeight,
     isCreateMode,
+    isBboxStructuralEditingEnabled,
     overlayDocument,
     onOverlayEditStarted,
     onOverlayDocumentSaved
@@ -73,6 +78,7 @@ function PdfViewerTabComponent({
   const bboxClipboard = useBboxClipboard({
     overlayDocument,
     currentPage: pdfState.currentPage,
+    isBboxStructuralEditingEnabled,
     onOverlayEditStarted,
     onOverlayDocumentSaved
   });
@@ -81,14 +87,12 @@ function PdfViewerTabComponent({
     overlayDocument,
     currentPage: pdfState.currentPage,
     copiedBbox: bboxClipboard.copiedBbox,
+    isBboxStructuralEditingEnabled,
+    anonymizationEntityLabels,
+    defaultAnonymizationEntityLabel,
+    defaultTextDirection,
     onOverlayEditStarted,
     onOverlayDocumentSaved
-  });
-
-  useViewerAutoFit({
-    hasPdf: pdfState.hasPdf,
-    documentMeta: pdfState.documentMeta,
-    onFitToWidth: pdfState.handleFitToWidth
   });
 
   const regionSnippet = useRegionSnippet({
@@ -181,7 +185,8 @@ function PdfViewerTabComponent({
         totalPages={pdfState.totalPages}
         zoom={pdfState.zoom}
         isCreateMode={isCreateMode}
-        canCreateBbox={Boolean(overlayDocument)}
+        canCreateBbox={Boolean(overlayDocument) && isBboxStructuralEditingEnabled}
+        isBboxStructuralEditingEnabled={isBboxStructuralEditingEnabled}
         hasCopiedBbox={bboxClipboard.hasCopiedBbox}
         recordSummary={recordSummary}
         overlayCount={visiblePageOverlays.length}
@@ -219,6 +224,7 @@ function PdfViewerTabComponent({
         pageHeight={pdfState.pageHeight}
         visiblePageOverlays={visiblePageOverlays}
         isCreateMode={isCreateMode}
+        isBboxStructuralEditingEnabled={isBboxStructuralEditingEnabled}
         interactionRegionId={interaction?.regionId ?? null}
         canvasContainerRef={pdfState.canvasContainerRef}
         pageStageRef={pdfState.pageStageRef}
@@ -261,7 +267,7 @@ function PdfViewerTabComponent({
         onClose={regionEditor.closeRegionEditor}
         onLabelChange={regionEditor.setDialogDraftLabel}
         onToggleDirection={() => {
-          regionEditor.setDialogTextDirection((previous) => (previous === "rtl" ? "ltr" : "rtl"));
+          regionEditor.setDialogTextDirection((previous: "rtl" | "ltr") => (previous === "rtl" ? "ltr" : "rtl"));
         }}
         onAnonymize={regionEditor.handleAnonymizeSelection}
         onGoPreviousRegion={regionNavigation.goPreviousRegion}
@@ -280,6 +286,7 @@ function PdfViewerTabComponent({
         onReset={regionEditor.handleResetRegionEditor}
         onDelete={regionEditor.handleDeleteRegionEditor}
         onCopyRegion={bboxClipboard.copyBbox}
+        isBboxStructuralEditingEnabled={isBboxStructuralEditingEnabled}
         hasCopiedBbox={bboxClipboard.hasCopiedBbox}
         onPasteRegionFromClipboard={regionEditor.handlePasteCopiedBboxIntoRegion}
         onCopyRegionText={(region) => {

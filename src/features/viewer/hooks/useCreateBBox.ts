@@ -36,6 +36,7 @@ interface UseCreateBBoxOptions {
   pageWidth: number;
   pageHeight: number;
   pdfDoc: PDFDocumentProxy | null;
+  isBboxStructuralEditingEnabled: boolean;
   overlayDocument: OverlayDocument | null;
   onOverlayEditStarted?: () => void;
   onOverlayDocumentSaved?: (document: OverlayDocument) => void;
@@ -47,6 +48,7 @@ export function useCreateBBox({
   pageWidth,
   pageHeight,
   pdfDoc,
+  isBboxStructuralEditingEnabled,
   overlayDocument,
   onOverlayEditStarted,
   onOverlayDocumentSaved
@@ -62,7 +64,14 @@ export function useCreateBBox({
 
   const beginCreateBBox = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
-      if (!isCreateMode || !overlayDocument || pageWidth <= 0 || pageHeight <= 0 || !pdfDoc) {
+      if (
+        !isBboxStructuralEditingEnabled ||
+        !isCreateMode ||
+        !overlayDocument ||
+        pageWidth <= 0 ||
+        pageHeight <= 0 ||
+        !pdfDoc
+      ) {
         return;
       }
 
@@ -88,7 +97,16 @@ export function useCreateBBox({
         bbox: nextBbox
       });
     },
-    [currentPage, isCreateMode, overlayDocument, pageHeight, pageStageRef, pageWidth, pdfDoc]
+    [
+      currentPage,
+      isBboxStructuralEditingEnabled,
+      isCreateMode,
+      overlayDocument,
+      pageHeight,
+      pageStageRef,
+      pageWidth,
+      pdfDoc
+    ]
   );
 
   useEffect(() => {
@@ -128,7 +146,7 @@ export function useCreateBBox({
         draftBbox.y2 > draftBbox.y1 &&
         isBboxLargeEnough(draftBbox, createInteraction.minimumSize);
 
-      if (isValidBbox && overlayDocument && onOverlayDocumentSaved) {
+      if (isValidBbox && isBboxStructuralEditingEnabled && overlayDocument && onOverlayDocumentSaved) {
         const nextRegion: OverlayRegion = {
           id: buildNextRegionId(overlayDocument, createInteraction.pageNumber),
           pageNumber: createInteraction.pageNumber,
@@ -164,7 +182,14 @@ export function useCreateBBox({
       window.removeEventListener("pointerup", handleCreatePointerEnd);
       window.removeEventListener("pointercancel", handleCreatePointerEnd);
     };
-  }, [createInteraction, onOverlayDocumentSaved, onOverlayEditStarted, overlayDocument, pageStageRef]);
+  }, [
+    createInteraction,
+    isBboxStructuralEditingEnabled,
+    onOverlayDocumentSaved,
+    onOverlayEditStarted,
+    overlayDocument,
+    pageStageRef
+  ]);
 
   const resetCreateState = useCallback(() => {
     setCreateInteraction(null);
@@ -173,6 +198,9 @@ export function useCreateBBox({
   }, []);
 
   const toggleCreateMode = useCallback(() => {
+    if (!isBboxStructuralEditingEnabled) {
+      return;
+    }
     setIsCreateMode((previous) => {
       const next = !previous;
       if (!next) {
@@ -180,7 +208,16 @@ export function useCreateBBox({
       }
       return next;
     });
-  }, [resetCreateState]);
+  }, [isBboxStructuralEditingEnabled, resetCreateState]);
+
+  useEffect(() => {
+    if (isBboxStructuralEditingEnabled) {
+      return;
+    }
+
+    setIsCreateMode(false);
+    resetCreateState();
+  }, [isBboxStructuralEditingEnabled, resetCreateState]);
 
   return {
     isCreateMode,

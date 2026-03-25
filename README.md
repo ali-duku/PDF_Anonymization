@@ -11,6 +11,21 @@ Every functional/UI update must include both:
 
 ## Latest Update
 
+- **v0.7.3 (2026-03-25)**
+  - Changed default PDF zoom after load to `150%`.
+  - Removed automatic fit-to-width on initial PDF load so the default zoom is applied consistently.
+  - Changed Region Context snippet default/reset zoom in Edit Region to `75%`.
+
+- **v0.7.2 (2026-03-25)**
+  - Added a global top-header `BBox structure` toggle as the canonical source of truth for structural bbox editing capability.
+  - Toggle OFF now blocks structural bbox operations everywhere they are exposed: move/resize, add, delete, full-bbox copy, and bbox paste.
+  - Enforced the gate in both UI affordances and underlying handlers so disabled structural actions cannot be executed accidentally.
+
+- **v0.7.1 (2026-03-25)**
+  - Added top-header global controls for entity profile selection and default text direction (`RTL`/`LTR`), with persistent restore across reloads.
+  - Replaced the single fixed entity catalog with canonical profile-based catalogs and friendly UI profile names, while keeping stable internal profile IDs.
+  - Wired active profile entity labels across anonymization pickers/editors and made region editor sessions start from the global default direction (local in-dialog toggle remains available).
+
 - **v0.7.0 (2026-03-25)**
   - Added compact inline bbox label editing directly on the outer viewer overlay beside existing bbox action icons.
   - Inline label changes now use the canonical region edit/save flow and shared label catalog (no parallel label path).
@@ -59,6 +74,7 @@ Every functional/UI update must include both:
   - Overlay drag/resize/create.
   - On-canvas bbox action controls (compact inline label selector + icon-only edit/delete/full-copy/text-copy) with dialog-equivalent delete behavior.
   - Toolbar paste action beside `Add BBox` to create a new bbox from copied bbox payload on the current page.
+  - Global top-header `BBox structure` toggle to enable/disable structural bbox editing operations (move/resize/add/delete/full-copy/paste).
   - Region dialog editing (label/text/entities), span anonymization, and delete.
   - Span dialogs use immediate entity auto-apply (no explicit `Save`/`Apply` buttons).
   - Span dialogs dismiss topmost-first on `Escape` or outside-click while keeping the parent region dialog open.
@@ -75,7 +91,7 @@ Every functional/UI update must include both:
   - Copy-to-clipboard.
   - Load-to-Viewer with confirmation guards.
 - App-level Save / Undo / Redo with keyboard shortcuts.
-- App-level display settings with persistent global font-size control.
+- App-level display settings with persistent global font-size control, active entity profile selection, default text direction, and bbox structural editing capability toggle.
 
 ## Stack
 

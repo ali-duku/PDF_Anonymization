@@ -2,8 +2,35 @@ import type { AppMeta } from "./types/appMeta";
 
 export const APP_META: AppMeta = {
   name: "Anonymizer",
-  version: "0.7.0",
+  version: "0.7.3",
   releaseNotes: [
+    {
+      version: "0.7.3",
+      date: "2026-03-25",
+      highlights: [
+        "Updated Viewer default PDF zoom on document load to 150% (was effectively opening at larger auto-fit scales).",
+        "Removed automatic fit-to-width on initial PDF load so the explicit default zoom level is applied consistently.",
+        "Updated Region Context default snippet zoom in Edit Region to 75% (was 50%), including reset behavior."
+      ]
+    },
+    {
+      version: "0.7.2",
+      date: "2026-03-25",
+      highlights: [
+        "Added a global top-header `BBox structure` toggle (persisted) as the single source of truth for structural bbox editing capability.",
+        "When disabled, structural bbox actions are blocked across the app: move/resize, add, delete, full-bbox copy, and bbox paste (toolbar/dialog).",
+        "Wired UI affordances and underlying action handlers to the same capability gate so disabled operations are both visibly unavailable and handler-enforced."
+      ]
+    },
+    {
+      version: "0.7.1",
+      date: "2026-03-25",
+      highlights: [
+        "Added top-header global settings for entity-profile selection and default text direction (`RTL`/`LTR`) with persisted restore on startup.",
+        "Reworked anonymization entities into a canonical profile catalog with friendly profile names, keeping stable internal identifiers and wiring active profile labels across span picker/editor flows.",
+        "Updated region-editor default direction behavior so new editor sessions start from the global top-bar direction setting while preserving existing local in-dialog direction toggles."
+      ]
+    },
     {
       version: "0.7.0",
       date: "2026-03-25",

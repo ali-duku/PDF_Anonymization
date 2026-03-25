@@ -7,6 +7,7 @@ export interface ViewerToolbarProps {
   zoom: number;
   isCreateMode: boolean;
   canCreateBbox: boolean;
+  isBboxStructuralEditingEnabled: boolean;
   hasCopiedBbox: boolean;
   recordSummary: string;
   overlayCount: number;

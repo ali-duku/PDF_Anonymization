@@ -9,6 +9,7 @@ function OverlayLayerComponent({
   visiblePageOverlays,
   interactionRegionId,
   isCreateMode,
+  isBboxStructuralEditingEnabled,
   onBeginCreateBBox,
   onBeginInteraction,
   onOpenRegionEditor,
@@ -19,7 +20,7 @@ function OverlayLayerComponent({
 }: OverlayLayerProps) {
   return (
     <div className={styles.overlayLayer} aria-label="Page overlays">
-      {isCreateMode && (
+      {isCreateMode && isBboxStructuralEditingEnabled && (
         <div
           className={styles.overlayCreateSurface}
           onPointerDown={onBeginCreateBBox}
@@ -40,6 +41,7 @@ function OverlayLayerComponent({
             isEditing={isEditing}
             isCreateDraftRegion={isCreateDraftRegion}
             isCreateMode={isCreateMode}
+            isBboxStructuralEditingEnabled={isBboxStructuralEditingEnabled}
             resizeHandles={[...RESIZE_HANDLES]}
             onBeginInteraction={onBeginInteraction}
             onOpenRegionEditor={onOpenRegionEditor}

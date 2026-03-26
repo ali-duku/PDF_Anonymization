@@ -9,7 +9,7 @@ Use semantic versioning and keep versions aligned in:
 - `src/appMeta.ts`
 - `CHANGELOG.md`
 
-Current baseline: `0.3.3` (2026-03-26).
+Current baseline: `0.4.0` (2026-03-26).
 
 ## Definition of Done
 
@@ -32,13 +32,13 @@ Do not reintroduce removed legacy domains without an explicit scoped feature req
 - Text editing/copy workflows
 - Previous bbox editing system
 
-UI baseline in v0.3.3:
+UI baseline in v0.4.0:
 
 - Top header remains a compact single row and contains the Export PDF action.
 - Viewer toolbar remains a compact single row and contains loading, page, and zoom actions (bbox creation is direct drag on the page).
 - Bboxes are managed inside page-coordinate bounds with resize/move/delete/edit interactions in the viewer stage.
-- Export generates one anonymized PDF across all pages when a PDF is loaded and bboxes exist, preserving selectable text outside anonymized regions.
-- Anonymized regions stay securely baked into flattened page pixels and excluded from the exported selectable text layer.
+- Export generates one anonymized PDF across all pages when a PDF is loaded and bboxes exist, preserving original document structure/selectable text outside anonymized regions.
+- Anonymized regions are irreversibly redacted through secure PDF mutation (no removable overlay-only masking).
 - Preview/export label ordering and border thickness should stay aligned through shared bbox formatting/visual constants.
 - Viewer/control sizing should use shared CSS tokens from `src/styles.css` instead of repeating hardcoded pixel values.
 

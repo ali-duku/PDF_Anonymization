@@ -2,7 +2,7 @@
 
 ## Overview
 
-PDF Anonymization v0.3.3 uses a single-page workspace with a PDF-first flow, interactive bbox editing, and high-fidelity anonymized PDF export.
+PDF Anonymization v0.4.0 uses a single-page workspace with a PDF-first flow, interactive bbox editing, and secure PDF-preserving anonymized export.
 
 ## Source Layout
 
@@ -27,9 +27,10 @@ PDF Anonymization v0.3.3 uses a single-page workspace with a PDF-first flow, int
   - `hooks/usePdfBboxes.ts`: feature-scoped bbox domain state and actions.
   - `hooks/usePdfExport.ts`: export execution state and header-facing export controller.
   - `constants/bbox.ts`: bbox geometry/visual tokens and Arabic entity defaults shared by preview and export.
-  - `constants/export.ts`: export quality/file-output constants.
+  - `constants/export.ts`: export file-output and WASM export constants.
   - `types/bbox.ts`: bbox domain contracts.
-  - `services/*`: retrieval adapters and high-fidelity export pipeline with secure redaction flattening plus selectable-text preservation outside redactions.
+  - `services/export/*`: export orchestration, redaction planning, PDFium mutation adapter, and overlay rendering adapter.
+  - `services/*`: retrieval adapters plus export service entrypoint.
   - `utils/*`: identifier validation, geometry helpers, worker setup, and export utilities.
 - `src/types`
   - Shared contracts for app metadata, retrieval payloads, service boundaries, and PDF load status.
@@ -50,7 +51,7 @@ Each component folder follows:
 4. `usePdfBboxes` owns per-document bbox domain state in page coordinate space.
 5. `PdfDocumentStage` renders canvas + `BboxOverlayLayer` for create/move/resize/delete/edit flows.
 6. `usePdfExport` in `PdfDocumentStage` publishes export state upward to `AppHeader`.
-7. `AppHeader` triggers flattened export download when enabled.
+7. `AppHeader` triggers secure redaction export download when enabled.
 
 ## Styling Tokens
 
@@ -58,8 +59,8 @@ Each component folder follows:
 - Bbox visual tokens (border, handle size, editor z-index, delete size) are also centralized in `src/styles.css`.
 - Viewer toolbar controls consume these tokens for consistent vertical sizing and alignment.
 
-## Scope Boundaries in v0.3.3
+## Scope Boundaries in v0.4.0
 
-- Supported: PDF loading, viewing, interactive bbox editing, and full-document anonymized PDF export that keeps secure baked redactions while preserving selectable text outside anonymized regions.
+- Supported: PDF loading, viewing, interactive bbox editing, and full-document anonymized PDF export that irreversibly redacts only targeted areas while preserving original structure/selectable text outside those areas.
 - Removed entirely: legacy secondary-tab workflows, JSON pipelines, text editing/copy flows, and previous bbox tooling.
 

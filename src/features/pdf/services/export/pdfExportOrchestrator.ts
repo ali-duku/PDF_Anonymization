@@ -1,0 +1,37 @@
+import { EXPORT_MIME_TYPE } from "../../constants/export";
+import type { PdfExportInput, PdfExportOptions, PdfExportResult } from "../../types/export";
+import { buildAnonymizedFileName } from "../../utils/exportFileName";
+import { normalizePdfExportError, PdfExportError, PdfExportErrorCode } from "./exportErrors";
+import { buildPageRedactionPlan } from "./redactionPlanBuilder";
+import { applySecurePdfRedactions } from "./redactionMutationAdapter";
+import { drawPdfExportOverlays } from "./overlayDrawingAdapter";
+import { assertBrowserExportSupport, assertValidExportInput } from "./exportValidation";
+
+export async function exportRedactedPdfWithBboxes(
+  input: PdfExportInput,
+  _options: PdfExportOptions = {}
+): Promise<PdfExportResult> {
+  assertBrowserExportSupport();
+  assertValidExportInput(input);
+
+  const pagePlan = buildPageRedactionPlan(input.bboxes);
+
+  try {
+    const sourceBytes = new Uint8Array(await input.sourcePdfBlob.arrayBuffer());
+    const redactedBytes = await applySecurePdfRedactions(sourceBytes, pagePlan);
+    const overlayBytes = await drawPdfExportOverlays(redactedBytes, pagePlan);
+    const finalizedBytes = Uint8Array.from(overlayBytes);
+
+    return {
+      blob: new Blob([finalizedBytes], { type: EXPORT_MIME_TYPE }),
+      fileName: buildAnonymizedFileName(input.sourceFileName)
+    };
+  } catch (error) {
+    const normalizedError = normalizePdfExportError(error);
+    if (normalizedError instanceof PdfExportError) {
+      throw normalizedError;
+    }
+
+    throw new PdfExportError(PdfExportErrorCode.Unknown, "Export failed.", { cause: error });
+  }
+}

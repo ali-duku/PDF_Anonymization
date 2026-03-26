@@ -6,9 +6,7 @@ export interface PdfExportInput {
   sourceFileName?: string | null;
 }
 
-export interface PdfExportOptions {
-  renderScale?: number;
-}
+export interface PdfExportOptions {}
 
 export interface PdfExportResult {
   blob: Blob;

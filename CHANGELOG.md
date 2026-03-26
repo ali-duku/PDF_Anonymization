@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.0] - 2026-03-26
+
+- Replaced the previous flattened export architecture with a true PDF-preserving redaction pipeline.
+- Added browser-local PDFium WASM mutation for irreversible bbox redaction while preserving non-redacted PDF structure and selectable text.
+- Added localized secure fallback: failing page-level batch redaction retries per bbox and hard-fails when irreversible redaction cannot be guaranteed.
+- Added deterministic overlay composition pass so exported fill/border/label rendering stays aligned with in-app preview rules.
+- Removed full-page raster export and hidden selectable-text layer reconstruction code paths.
+- Updated README, architecture docs, maintenance docs, and in-app What&apos;s New to reflect the new export model.
+
 ## [0.3.3] - 2026-03-26
 
 - Refactored export to preserve selectable text for non-anonymized content by rebuilding a hidden text layer from source PDF text runs.

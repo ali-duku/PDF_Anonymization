@@ -2,8 +2,18 @@ import type { AppMeta } from "./types/appMeta";
 
 export const APP_META: AppMeta = {
   name: "PDF Anonymization",
-  version: "0.3.3",
+  version: "0.4.0",
   releaseNotes: [
+    {
+      version: "0.4.0",
+      date: "2026-03-26",
+      highlights: [
+        "Exported PDFs now preserve original PDF structure more faithfully outside anonymized regions.",
+        "Selectable and searchable text is preserved outside anonymized areas without rebuilding hidden text layers.",
+        "Anonymized regions are now securely redacted through irreversible PDF mutation before final overlay drawing.",
+        "Export visual fidelity now matches in-app bbox preview more closely for geometry, borders, and label composition."
+      ]
+    },
     {
       version: "0.3.3",
       date: "2026-03-26",

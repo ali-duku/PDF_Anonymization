@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PdfBbox } from "../types/bbox";
 import type { PdfExportController } from "../types/export";
 import { downloadBlobFile } from "../utils/fileDownload";
+import { PdfExportError } from "../services/export/exportErrors";
 
 interface UsePdfExportOptions {
   sourcePdfBlob: Blob | null;
@@ -16,6 +17,10 @@ interface ExportPayloadRef {
 }
 
 function normalizeExportError(error: unknown): string {
+  if (error instanceof PdfExportError && error.message) {
+    return error.message;
+  }
+
   if (error instanceof Error && error.message) {
     return error.message;
   }
@@ -61,8 +66,8 @@ export function usePdfExport({
     setIsExporting(true);
 
     try {
-      const { exportFlattenedPdfWithBboxes } = await import("../services/pdfExportService");
-      const result = await exportFlattenedPdfWithBboxes({
+      const { exportRedactedPdfWithBboxes } = await import("../services/pdfExportService");
+      const result = await exportRedactedPdfWithBboxes({
         sourcePdfBlob: payload.sourcePdfBlob,
         bboxes: payload.bboxes,
         sourceFileName: payload.sourceFileName

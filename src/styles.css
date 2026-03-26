@@ -15,6 +15,16 @@
   --success: #43d17b;
   --error: #ff6f6f;
   --shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  --ui-panel-radius: 12px;
+  --ui-group-radius: 10px;
+  --ui-control-radius: 8px;
+  --ui-control-height: 34px;
+  --ui-control-padding-inline: 9px;
+  --ui-toolbar-gap: 8px;
+  --ui-group-gap: 7px;
+  --ui-group-padding-block: 5px;
+  --ui-group-padding-inline: 8px;
+  --ui-fast-transition: 120ms ease;
   font-size: calc(16px * var(--app-font-size-scale));
   font-family: "Space Grotesk", "Segoe UI", "Trebuchet MS", sans-serif;
 }

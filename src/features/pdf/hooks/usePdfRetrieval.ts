@@ -107,10 +107,7 @@ export function usePdfRetrieval({
 
       let response;
       try {
-        response = await pdfRetrievalService.getFile(
-          { id: safeId },
-          { signal: nextController.signal }
-        );
+        response = await pdfRetrievalService.getFile({ id: safeId }, { signal: nextController.signal });
       } catch {
         response = {
           ok: false as const,

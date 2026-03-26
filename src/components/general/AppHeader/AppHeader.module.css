@@ -1,0 +1,71 @@
+.appHeader {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--ui-toolbar-gap);
+  padding: var(--ui-group-padding-inline) 12px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(10, 16, 22, 0.9);
+  backdrop-filter: blur(6px);
+  white-space: nowrap;
+  overflow-x: auto;
+}
+
+.productName {
+  margin: 0;
+  font-size: clamp(1rem, 1.8vw, 1.22rem);
+  flex: 0 0 auto;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+.versionBadge {
+  border: 1px solid rgba(45, 212, 191, 0.45);
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.actionButton {
+  border: 1px solid transparent;
+  border-radius: var(--ui-control-radius);
+  color: var(--bg);
+  background: linear-gradient(135deg, var(--accent), #67f2df);
+  height: var(--ui-control-height);
+  padding: 0 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform var(--ui-fast-transition), filter var(--ui-fast-transition);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.actionButton:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+}
+
+.actionButtonSecondary {
+  color: var(--text);
+  background: rgba(20, 32, 45, 0.92);
+  border-color: var(--line);
+}
+
+.actionButton:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+  transform: none;
+}

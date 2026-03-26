@@ -8,12 +8,12 @@ import {
   type MutableRefObject,
   type SetStateAction
 } from "react";
-import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy } from "pdfjs-dist";
-import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import { getDocument, type PDFDocumentProxy } from "pdfjs-dist";
 import type { PdfLoadStatus } from "../../../types/pdf";
 import type { RetrievedPdfDocument, RetrievedPdfMeta } from "../../../types/pdfRetrieval";
+import { configurePdfJsWorker } from "../utils/pdfWorker";
 
-GlobalWorkerOptions.workerSrc = pdfWorker;
+configurePdfJsWorker();
 
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 4;
@@ -34,6 +34,8 @@ export interface PdfDocumentState {
   zoom: number;
   pageWidth: number;
   pageHeight: number;
+  pageBaseWidth: number;
+  pageBaseHeight: number;
   hasPdf: boolean;
 }
 
@@ -69,6 +71,8 @@ export function usePdfDocument({
   const [zoom, setZoom] = useState(DEFAULT_DOCUMENT_ZOOM);
   const [pageWidth, setPageWidth] = useState(0);
   const [pageHeight, setPageHeight] = useState(0);
+  const [pageBaseWidth, setPageBaseWidth] = useState(0);
+  const [pageBaseHeight, setPageBaseHeight] = useState(0);
   const loadSequenceRef = useRef(0);
 
   const clearCanvasSurface = useCallback(() => {
@@ -81,6 +85,8 @@ export function usePdfDocument({
     }
     setPageWidth(0);
     setPageHeight(0);
+    setPageBaseWidth(0);
+    setPageBaseHeight(0);
   }, []);
 
   useEffect(() => {
@@ -164,6 +170,7 @@ export function usePdfDocument({
       }
 
       const viewport = page.getViewport({ scale: zoom });
+      const viewportAtOne = page.getViewport({ scale: 1 });
       const canvas = canvasRef.current;
       if (!canvas) {
         return;
@@ -182,6 +189,8 @@ export function usePdfDocument({
       canvas.style.height = `${height}px`;
       setPageWidth(width);
       setPageHeight(height);
+      setPageBaseWidth(viewportAtOne.width);
+      setPageBaseHeight(viewportAtOne.height);
 
       renderTask = page.render({ canvas, canvasContext: context, viewport });
       await renderTask.promise;
@@ -272,6 +281,8 @@ export function usePdfDocument({
       zoom,
       pageWidth,
       pageHeight,
+      pageBaseWidth,
+      pageBaseHeight,
       hasPdf: Boolean(pdfDoc),
       movePage,
       handlePageInput,
@@ -291,6 +302,8 @@ export function usePdfDocument({
       loadStatus,
       movePage,
       pageHeight,
+      pageBaseHeight,
+      pageBaseWidth,
       pageWidth,
       pdfDoc,
       totalPages,

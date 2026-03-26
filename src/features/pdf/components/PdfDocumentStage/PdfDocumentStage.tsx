@@ -1,5 +1,8 @@
-import { memo } from "react";
+import { memo, useEffect, useMemo } from "react";
 import { ToolbarIconButton } from "../../../../components/general/ToolbarIconButton/ToolbarIconButton";
+import { usePdfBboxes } from "../../hooks/usePdfBboxes";
+import { usePdfExport } from "../../hooks/usePdfExport";
+import { BboxOverlayLayer } from "../BboxOverlayLayer/BboxOverlayLayer";
 import { PdfSourceControls } from "../PdfSourceControls/PdfSourceControls";
 import styles from "./PdfDocumentStage.module.css";
 import type { PdfDocumentStageProps } from "./PdfDocumentStage.types";
@@ -18,9 +21,15 @@ function PdfDocumentStageComponent({
   zoom,
   pageWidth,
   pageHeight,
+  pageBaseWidth,
+  pageBaseHeight,
+  documentKey,
+  sourcePdfBlob,
+  sourceFileName,
   pageStageRef,
   canvasContainerRef,
   canvasRef,
+  onExportControllerChange,
   onRetrievalInputChange,
   onRetrieveDocument,
   onResetWorkspace,
@@ -33,6 +42,54 @@ function PdfDocumentStageComponent({
   onZoomIn,
   onFitToWidth
 }: PdfDocumentStageProps) {
+  const pageSize = useMemo(
+    () => ({
+      width: pageBaseWidth,
+      height: pageBaseHeight
+    }),
+    [pageBaseHeight, pageBaseWidth]
+  );
+
+  const displayPageSize = useMemo(
+    () => ({
+      width: pageWidth,
+      height: pageHeight
+    }),
+    [pageHeight, pageWidth]
+  );
+
+  const bboxState = usePdfBboxes({
+    documentKey,
+    currentPage,
+    pageSize
+  });
+
+  const exportState = usePdfExport({
+    sourcePdfBlob,
+    sourceFileName,
+    bboxes: bboxState.bboxes
+  });
+
+  const exportController = useMemo(
+    () => ({
+      canExport: exportState.canExport && hasPdf,
+      isExporting: exportState.isExporting,
+      errorMessage: exportState.errorMessage,
+      exportPdf: exportState.exportPdf
+    }),
+    [
+      exportState.canExport,
+      exportState.errorMessage,
+      exportState.exportPdf,
+      exportState.isExporting,
+      hasPdf
+    ]
+  );
+
+  useEffect(() => {
+    onExportControllerChange?.(exportController);
+  }, [exportController, onExportControllerChange]);
+
   return (
     <section className={styles.stagePanel} aria-label="PDF viewer stage">
       <header className={styles.toolbarRow}>
@@ -103,14 +160,6 @@ function PdfDocumentStageComponent({
             >
               Fit
             </button>
-            <button
-              type="button"
-              className={styles.buttonSecondary}
-              disabled
-              title="Add BBox is coming soon."
-            >
-              Add BBox
-            </button>
           </div>
         </div>
       </header>
@@ -137,6 +186,27 @@ function PdfDocumentStageComponent({
           }
         >
           {hasPdf && <canvas ref={canvasRef} className={styles.pdfCanvas} />}
+
+          {hasPdf && (
+            <BboxOverlayLayer
+              hasPdf={hasPdf}
+              pageStageRef={pageStageRef}
+              displayPageSize={displayPageSize}
+              pageSize={pageSize}
+              bboxes={bboxState.currentPageBboxes}
+              selectedBboxId={bboxState.selectedBboxId}
+              editingBboxId={bboxState.editingBboxId}
+              entityOptions={bboxState.entityOptions}
+              onSelectBbox={bboxState.selectBbox}
+              onStartEditingBbox={bboxState.startEditingBbox}
+              onDeleteBbox={bboxState.deleteBbox}
+              onCreateBbox={bboxState.createBbox}
+              onUpdateBboxRect={bboxState.updateBboxRect}
+              onUpdateBboxEntityLabel={bboxState.updateBboxEntityLabel}
+              onUpdateBboxInstanceNumber={bboxState.updateBboxInstanceNumber}
+              onRegisterCustomEntityLabel={bboxState.registerCustomEntityLabel}
+            />
+          )}
 
           {!hasPdf && loadStatus !== "loading" && (
             <div className={styles.emptyView}>

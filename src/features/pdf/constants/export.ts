@@ -1,0 +1,10 @@
+export const PDF_POINTS_PER_INCH = 72;
+export const EXPORT_TARGET_DPI = 600;
+export const EXPORT_RENDER_SCALE = EXPORT_TARGET_DPI / PDF_POINTS_PER_INCH;
+export const EXPORT_MIME_TYPE = "application/pdf";
+export const EXPORT_FILE_SUFFIX = "-anonymized";
+export const EXPORT_FILE_EXTENSION = ".pdf";
+export const EXPORT_FALLBACK_FILE_NAME = `anonymized-document${EXPORT_FILE_EXTENSION}`;
+export const EXPORT_MAX_CANVAS_PIXELS = 120_000_000;
+export const EXPORT_SELECTABLE_TEXT_OPACITY = 0;
+export const EXPORT_TEXT_REDACTION_OVERLAP_PADDING = 0.75;

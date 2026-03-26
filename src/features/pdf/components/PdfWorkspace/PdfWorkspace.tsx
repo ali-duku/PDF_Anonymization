@@ -21,7 +21,7 @@ function buildDocumentLoadStatus(loadStatus: PdfLoadStatus, errorMessage?: strin
   return { text: "", tone: "neutral" as const };
 }
 
-function PdfWorkspaceComponent({ pdfRetrievalService }: PdfWorkspaceProps) {
+function PdfWorkspaceComponent({ pdfRetrievalService, onExportControllerChange }: PdfWorkspaceProps) {
   const [activeSource, setActiveSource] = useState<ActiveSource>("none");
   const [retrievalInputValue, setRetrievalInputValue] = useState("");
 
@@ -142,9 +142,15 @@ function PdfWorkspaceComponent({ pdfRetrievalService }: PdfWorkspaceProps) {
         zoom={pdfState.zoom}
         pageWidth={pdfState.pageWidth}
         pageHeight={pdfState.pageHeight}
+        pageBaseWidth={pdfState.pageBaseWidth}
+        pageBaseHeight={pdfState.pageBaseHeight}
+        documentKey={pdfState.documentMeta?.id ?? null}
+        sourcePdfBlob={activeDocument?.blob ?? null}
+        sourceFileName={activeDocument?.meta.fileName ?? null}
         pageStageRef={pdfState.pageStageRef}
         canvasContainerRef={pdfState.canvasContainerRef}
         canvasRef={pdfState.canvasRef}
+        onExportControllerChange={onExportControllerChange}
         onRetrievalInputChange={setRetrievalInputValue}
         onRetrieveDocument={handleRetrieveDocument}
         onResetWorkspace={handleResetWorkspace}

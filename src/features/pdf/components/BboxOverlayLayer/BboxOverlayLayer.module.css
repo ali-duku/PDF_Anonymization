@@ -1,0 +1,14 @@
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: var(--bbox-layer-z-index);
+  outline: none;
+  cursor: crosshair;
+}
+
+.draftBox {
+  position: absolute;
+  border: var(--bbox-border-width) dashed var(--bbox-border-color);
+  background: rgba(255, 255, 255, 0.32);
+  pointer-events: none;
+}

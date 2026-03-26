@@ -15,6 +15,28 @@
   --success: #43d17b;
   --error: #ff6f6f;
   --shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  --ui-panel-radius: 12px;
+  --ui-group-radius: 10px;
+  --ui-control-radius: 8px;
+  --ui-control-height: 34px;
+  --ui-control-padding-inline: 9px;
+  --ui-toolbar-gap: 8px;
+  --ui-group-gap: 7px;
+  --ui-group-padding-block: 5px;
+  --ui-group-padding-inline: 8px;
+  --ui-fast-transition: 120ms ease;
+  --bbox-border-width: 1px;
+  --bbox-handle-size: 10px;
+  --bbox-delete-button-size: 22px;
+  --bbox-delete-button-offset-x: 4px;
+  --bbox-delete-button-offset-y: 4px;
+  --bbox-layer-z-index: 4;
+  --bbox-editor-z-index: 6;
+  --bbox-editor-min-width: 230px;
+  --bbox-label-padding: 2px;
+  --bbox-fill-color: #ffffff;
+  --bbox-border-color: #000000;
+  --bbox-text-color: #000000;
   font-size: calc(16px * var(--app-font-size-scale));
   font-family: "Space Grotesk", "Segoe UI", "Trebuchet MS", sans-serif;
 }

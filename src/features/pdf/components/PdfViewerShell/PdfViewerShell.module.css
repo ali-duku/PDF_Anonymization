@@ -1,0 +1,9 @@
+.viewerShell {
+  width: 100%;
+  min-height: 0;
+  min-width: 0;
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  overflow: hidden;
+}

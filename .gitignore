@@ -8,3 +8,4 @@ vite.config.js
 vite.config.d.ts
 moj-shour_human-poc/
 HMC_anonymisation_handoff/
+data/

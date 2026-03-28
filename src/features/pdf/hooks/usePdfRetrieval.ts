@@ -5,6 +5,7 @@ import type {
   RetrievedPdfMeta
 } from "../../../types/pdfRetrieval";
 import type { PdfRetrievalService } from "../../../types/services";
+import { buildRetrievalSessionIdentitySeed } from "../utils/pdfSessionIdentity";
 import { validatePdfIdentifier } from "../utils/pdfIdentifier";
 
 export type PdfRetrievalStatus = "idle" | "loading" | "success" | "error";
@@ -55,7 +56,14 @@ function buildRetrievedMeta(
     fileSize: data.pdfBlob.size,
     updatedAt: data.updatedAt,
     requestUrl,
-    retrievedAt: new Date().toISOString()
+    retrievedAt: new Date().toISOString(),
+    sourceType: "retrieval",
+    sessionIdentitySeed: buildRetrievalSessionIdentitySeed({
+      id: data.id,
+      bucketKey: data.bucketKey,
+      updatedAt: data.updatedAt,
+      fileSize: data.pdfBlob.size
+    })
   };
 }
 

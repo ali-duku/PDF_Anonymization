@@ -2,8 +2,48 @@ import type { AppMeta } from "./types/appMeta";
 
 export const APP_META: AppMeta = {
   name: "PDF Anonymization",
-  version: "0.4.0",
+  version: "0.5.0",
   releaseNotes: [
+    {
+      version: "0.5.0",
+      date: "2026-03-28",
+      highlights: [
+        "Added a compact top-bar Save action with idle/saving/saved status, persisting only PDF session state and never PDF bytes.",
+        "Added autosave for bbox mutations with subtle bottom-right viewer feedback and last autosave time.",
+        "Implemented deterministic bounded undo/redo for create, move, resize, delete, duplicate, paste, and label/number edits.",
+        "Added restore prompt for matching PDF sessions after close/refresh plus close-protection warnings for dirty or unexported work.",
+        "Added guarded source-switch prompts to reduce accidental loss when replacing/resetting a PDF session."
+      ]
+    },
+    {
+      version: "0.4.3",
+      date: "2026-03-28",
+      highlights: [
+        "Pressing Enter now opens the inline editor when a bbox is selected and not already in an active edit/drag interaction.",
+        "Refined bbox action hover stability so controls remain visible while moving from bbox content to the action icon cluster.",
+        "Reordered viewer toolbar groups to source, page, zoom, then Paste and normalized Paste-group spacing to match other groups."
+      ]
+    },
+    {
+      version: "0.4.2",
+      date: "2026-03-28",
+      highlights: [
+        "Moved the viewer Paste action into its own toolbar group for cleaner one-line control grouping.",
+        "Upgraded bbox action icons to a larger, modern translucent style with clearer semantic visuals for Delete, Duplicate, and Copy.",
+        "Added concise hover/focus tooltips on bbox action icons to improve clarity without interfering with interactions."
+      ]
+    },
+    {
+      version: "0.4.1",
+      date: "2026-03-28",
+      highlights: [
+        "Replaced bbox delete with a polished trash action and added distinct Duplicate and Copy controls in a compact action cluster.",
+        "Added viewer-toolbar Paste so copied bboxes can be inserted on the current page with exact geometry preserved and safe bounds clamping.",
+        "Duplicate now creates a same-content bbox with a deterministic down-right offset and clean in-bounds placement near page edges.",
+        "Updated bbox action visibility to appear on hover and selection, and added Escape-based deselection when no draft/edit session is active.",
+        "Extended bbox editor keyboard commit so Enter now applies edits from both Entity and Number fields."
+      ]
+    },
     {
       version: "0.4.0",
       date: "2026-03-26",

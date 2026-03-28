@@ -1,62 +1,320 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BBOX_MIN_SIZE, DEFAULT_ARABIC_ENTITY_LABELS, DEFAULT_BBOX_ENTITY_LABEL } from "../constants/bbox";
-import type { PdfBbox, PdfBboxRect, PdfPageSize } from "../types/bbox";
-import { normalizeRectWithinBounds } from "../utils/bboxGeometry";
+import type { RetrievedPdfMeta } from "../../../types/pdfRetrieval";
+import { AUTOSAVE_DEBOUNCE_MS, SAVE_STATUS_HOLD_MS } from "../constants/session";
+import { sessionStorageService } from "../services/sessionStorageService";
+import type {
+  PersistedSessionSnapshot,
+  RestorePromptState,
+  SaveStatus,
+  SessionHistoryState,
+  SessionPresentState
+} from "../types/session";
+import type { BboxClipboardSnapshot, PdfBbox, PdfBboxRect, PdfPageSize } from "../types/bbox";
+import { resolvePdfSessionIdentity } from "../utils/pdfSessionIdentity";
+import {
+  applyHistoryMutation,
+  createInitialHistoryState,
+  redoHistory,
+  undoHistory
+} from "./pdfSession/pdfSessionHistory";
+import {
+  buildPersistedSessionSnapshot,
+  clonePersistedHistory
+} from "./pdfSession/pdfSessionPersistence";
+import { useBboxMutationActions } from "./pdfSession/useBboxMutationActions";
 
 interface UsePdfBboxesOptions {
-  documentKey: string | null;
+  documentMeta: RetrievedPdfMeta | null;
   currentPage: number;
   pageSize: PdfPageSize;
 }
 
-type BboxesByDocument = Record<string, PdfBbox[]>;
-type BboxCollectionUpdater = (bboxes: PdfBbox[]) => PdfBbox[];
+interface SaveLifecycleState {
+  lastAutosaveAt: number | null;
+  lastManualSaveAt: number | null;
+  autosavedRevision: number;
+  manualSavedRevision: number;
+  exportedRevision: number;
+  lastExportedAt: number | null;
+}
+
+interface MutationOptions {
+  mutationKey?: string;
+  allowCoalesce?: boolean;
+}
+
+interface RestoreSessionState {
+  prompt: RestorePromptState;
+  pendingSnapshot: PersistedSessionSnapshot | null;
+}
 
 export interface UsePdfBboxesResult {
   bboxes: PdfBbox[];
   currentPageBboxes: PdfBbox[];
   selectedBboxId: string | null;
   editingBboxId: string | null;
+  canPaste: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
+  canSave: boolean;
+  hasLossRisk: boolean;
+  saveStatus: SaveStatus;
+  lastAutosaveAt: number | null;
+  lastManualSaveAt: number | null;
+  restorePromptState: RestorePromptState;
   entityOptions: readonly string[];
   selectBbox: (bboxId: string | null) => void;
   startEditingBbox: (bboxId: string | null) => void;
   createBbox: (rect: PdfBboxRect) => void;
+  copyBbox: (bboxId: string) => void;
+  duplicateBbox: (bboxId: string) => void;
+  pasteClipboardToCurrentPage: () => void;
   updateBboxRect: (bboxId: string, rect: PdfBboxRect) => void;
   updateBboxEntityLabel: (bboxId: string, nextLabel: string) => void;
   updateBboxInstanceNumber: (bboxId: string, nextNumber: number | null) => void;
   deleteBbox: (bboxId: string) => void;
   registerCustomEntityLabel: (label: string) => void;
+  undo: () => void;
+  redo: () => void;
+  manualSave: () => Promise<void>;
+  markExported: () => void;
+  restoreSession: () => void;
+  skipRestoreSession: () => void;
 }
 
-const EMPTY_BBOXES: PdfBbox[] = [];
+const INITIAL_SAVE_LIFECYCLE: SaveLifecycleState = {
+  lastAutosaveAt: null,
+  lastManualSaveAt: null,
+  autosavedRevision: 0,
+  manualSavedRevision: 0,
+  exportedRevision: 0,
+  lastExportedAt: null
+};
+
+const CLOSED_RESTORE_PROMPT: RestorePromptState = {
+  isOpen: false,
+  identityKey: null,
+  fileName: "",
+  bboxCount: 0,
+  lastSavedAt: null
+};
 
 function buildBboxId(sequence: number): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return `bbox-${crypto.randomUUID()}`;
   }
+
   return `bbox-${Date.now()}-${sequence}`;
 }
 
+function withNextRevision(nextState: Omit<SessionPresentState, "revision">, previousRevision: number): SessionPresentState {
+  return {
+    ...nextState,
+    revision: previousRevision + 1
+  };
+}
+
 export function usePdfBboxes({
-  documentKey,
+  documentMeta,
   currentPage,
   pageSize
 }: UsePdfBboxesOptions): UsePdfBboxesResult {
-  const [bboxesByDocument, setBboxesByDocument] = useState<BboxesByDocument>({});
+  const [history, setHistory] = useState<SessionHistoryState>(() => createInitialHistoryState());
   const [selectedBboxId, setSelectedBboxId] = useState<string | null>(null);
   const [editingBboxId, setEditingBboxId] = useState<string | null>(null);
-  const [customEntityLabels, setCustomEntityLabels] = useState<string[]>([]);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const [saveLifecycle, setSaveLifecycle] = useState<SaveLifecycleState>(INITIAL_SAVE_LIFECYCLE);
+  const [restoreSessionState, setRestoreSessionState] = useState<RestoreSessionState>({
+    prompt: CLOSED_RESTORE_PROMPT,
+    pendingSnapshot: null
+  });
+  const [clipboardSnapshot, setClipboardSnapshot] = useState<BboxClipboardSnapshot | null>(null);
+
   const idSequenceRef = useRef(0);
+  const skippedRestoreKeyRef = useRef<string | null>(null);
+  const previousIdentityKeyRef = useRef<string | null>(null);
+  const historyRef = useRef(history);
+  const saveLifecycleRef = useRef(saveLifecycle);
+  const saveStatusResetTimeoutRef = useRef<number | null>(null);
+  const saveStatusSequenceRef = useRef(0);
 
   useEffect(() => {
+    historyRef.current = history;
+  }, [history]);
+
+  useEffect(() => {
+    saveLifecycleRef.current = saveLifecycle;
+  }, [saveLifecycle]);
+
+  const sessionIdentity = useMemo(() => resolvePdfSessionIdentity(documentMeta), [documentMeta]);
+
+  const writeSnapshot = useCallback(
+    (nextLifecycle: SaveLifecycleState, nextHistory: SessionHistoryState = historyRef.current) => {
+      if (!sessionIdentity) {
+        return;
+      }
+
+      sessionStorageService.writeSnapshot(
+        buildPersistedSessionSnapshot({
+          identity: sessionIdentity,
+          history: nextHistory,
+          ...nextLifecycle
+        })
+      );
+    },
+    [sessionIdentity]
+  );
+
+  const scheduleSaveStatusReset = useCallback(() => {
+    if (saveStatusResetTimeoutRef.current !== null) {
+      window.clearTimeout(saveStatusResetTimeoutRef.current);
+    }
+
+    saveStatusResetTimeoutRef.current = window.setTimeout(() => {
+      setSaveStatus("idle");
+    }, SAVE_STATUS_HOLD_MS);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (saveStatusResetTimeoutRef.current !== null) {
+        window.clearTimeout(saveStatusResetTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const nextIdentityKey = sessionIdentity?.key ?? null;
+    if (
+      previousIdentityKeyRef.current !== null &&
+      nextIdentityKey !== previousIdentityKeyRef.current
+    ) {
+      skippedRestoreKeyRef.current = null;
+    }
+    previousIdentityKeyRef.current = nextIdentityKey;
+
+    idSequenceRef.current = 0;
     setSelectedBboxId(null);
     setEditingBboxId(null);
-  }, [documentKey]);
+    setClipboardSnapshot(null);
+    setSaveStatus("idle");
 
-  const bboxes = useMemo(
-    () => (documentKey ? bboxesByDocument[documentKey] ?? EMPTY_BBOXES : EMPTY_BBOXES),
-    [bboxesByDocument, documentKey]
+    if (!sessionIdentity) {
+      setHistory(createInitialHistoryState());
+      setSaveLifecycle(INITIAL_SAVE_LIFECYCLE);
+      setRestoreSessionState({
+        prompt: CLOSED_RESTORE_PROMPT,
+        pendingSnapshot: null
+      });
+      return;
+    }
+
+    const persistedSnapshot = sessionStorageService.readSnapshot(sessionIdentity.key);
+    const hasRestorableWork = Boolean(persistedSnapshot && persistedSnapshot.history.present.bboxes.length > 0);
+    const shouldPromptRestore = hasRestorableWork && skippedRestoreKeyRef.current !== sessionIdentity.key;
+
+    setHistory(createInitialHistoryState());
+    setSaveLifecycle(INITIAL_SAVE_LIFECYCLE);
+
+    if (shouldPromptRestore && persistedSnapshot) {
+      setRestoreSessionState({
+        prompt: {
+          isOpen: true,
+          identityKey: sessionIdentity.key,
+          fileName: persistedSnapshot.meta.identity.fileName,
+          bboxCount: persistedSnapshot.history.present.bboxes.length,
+          lastSavedAt: persistedSnapshot.meta.lastAutosaveAt ?? persistedSnapshot.meta.lastManualSaveAt
+        },
+        pendingSnapshot: persistedSnapshot
+      });
+      return;
+    }
+
+    setRestoreSessionState({
+      prompt: CLOSED_RESTORE_PROMPT,
+      pendingSnapshot: null
+    });
+  }, [sessionIdentity]);
+
+  useEffect(() => {
+    if (!sessionIdentity) {
+      return;
+    }
+
+    const hasMutations = history.present.revision > 0;
+    if (!hasMutations || history.present.revision === saveLifecycle.autosavedRevision) {
+      return;
+    }
+
+    const sequence = saveStatusSequenceRef.current + 1;
+    saveStatusSequenceRef.current = sequence;
+    setSaveStatus("saving");
+
+    const timeoutId = window.setTimeout(() => {
+      if (sequence !== saveStatusSequenceRef.current) {
+        return;
+      }
+
+      const revisionToPersist = historyRef.current.present.revision;
+      const nextLifecycle: SaveLifecycleState = {
+        ...saveLifecycleRef.current,
+        lastAutosaveAt: Date.now(),
+        autosavedRevision: revisionToPersist
+      };
+
+      saveLifecycleRef.current = nextLifecycle;
+      setSaveLifecycle(nextLifecycle);
+      writeSnapshot(nextLifecycle, historyRef.current);
+      setSaveStatus("saved");
+      scheduleSaveStatusReset();
+    }, AUTOSAVE_DEBOUNCE_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [history.present.revision, saveLifecycle.autosavedRevision, scheduleSaveStatusReset, sessionIdentity, writeSnapshot]);
+
+  const bboxes = history.present.bboxes;
+
+  const runMutation = useCallback(
+    (
+      mutator: (present: SessionPresentState) => Omit<SessionPresentState, "revision"> | null,
+      options: MutationOptions = {}
+    ) => {
+      setHistory((previous) => {
+        const nextBaseState = mutator(previous.present);
+        if (!nextBaseState) {
+          return previous;
+        }
+
+        const nextState = withNextRevision(nextBaseState, previous.present.revision);
+        return applyHistoryMutation(previous, nextState, {
+          mutationKey: options.mutationKey,
+          allowCoalesce: options.allowCoalesce
+        });
+      });
+    },
+    []
   );
+
+  const nextBboxId = useCallback(() => {
+    idSequenceRef.current += 1;
+    return buildBboxId(idSequenceRef.current);
+  }, []);
+
+  const mutationActions = useBboxMutationActions({
+    hasActiveSession: Boolean(sessionIdentity),
+    currentPage,
+    pageSize,
+    bboxes,
+    customEntityLabels: history.present.customEntityLabels,
+    clipboardSnapshot,
+    setClipboardSnapshot,
+    setSelectedBboxId,
+    setEditingBboxId,
+    nextBboxId,
+    runMutation
+  });
 
   const currentPageBboxes = useMemo(
     () => bboxes.filter((bbox) => bbox.pageNumber === currentPage),
@@ -67,6 +325,7 @@ export function usePdfBboxes({
     if (!selectedBboxId) {
       return;
     }
+
     const isVisible = currentPageBboxes.some((bbox) => bbox.id === selectedBboxId);
     if (!isVisible) {
       setSelectedBboxId(null);
@@ -77,44 +336,12 @@ export function usePdfBboxes({
     if (!editingBboxId) {
       return;
     }
+
     const isVisible = currentPageBboxes.some((bbox) => bbox.id === editingBboxId);
     if (!isVisible) {
       setEditingBboxId(null);
     }
   }, [currentPageBboxes, editingBboxId]);
-
-  const entityOptions = useMemo(() => {
-    const options: string[] = [...DEFAULT_ARABIC_ENTITY_LABELS];
-    for (const customLabel of customEntityLabels) {
-      if (!options.includes(customLabel)) {
-        options.push(customLabel);
-      }
-    }
-    return options;
-  }, [customEntityLabels]);
-
-  const updateActiveDocumentBboxes = useCallback(
-    (updater: BboxCollectionUpdater) => {
-      if (!documentKey) {
-        return;
-      }
-
-      setBboxesByDocument((previous) => {
-        const current = previous[documentKey] ?? EMPTY_BBOXES;
-        const next = updater(current);
-
-        if (next === current) {
-          return previous;
-        }
-
-        return {
-          ...previous,
-          [documentKey]: next
-        };
-      });
-    },
-    [documentKey]
-  );
 
   const selectBbox = useCallback((bboxId: string | null) => {
     setSelectedBboxId(bboxId);
@@ -127,144 +354,138 @@ export function usePdfBboxes({
     }
   }, []);
 
-  const createBbox = useCallback(
-    (rect: PdfBboxRect) => {
-      if (!documentKey) {
-        return;
-      }
+  const undo = useCallback(() => {
+    setHistory((previous) => undoHistory(previous));
+    setEditingBboxId(null);
+  }, []);
 
-      const nextRect = normalizeRectWithinBounds(rect, pageSize, BBOX_MIN_SIZE);
-      idSequenceRef.current += 1;
-      const nextId = buildBboxId(idSequenceRef.current);
-      const nextBbox: PdfBbox = {
-        id: nextId,
-        pageNumber: currentPage,
-        x: nextRect.x,
-        y: nextRect.y,
-        width: nextRect.width,
-        height: nextRect.height,
-        entityLabel: DEFAULT_BBOX_ENTITY_LABEL,
-        instanceNumber: null
-      };
+  const redo = useCallback(() => {
+    setHistory((previous) => redoHistory(previous));
+    setEditingBboxId(null);
+  }, []);
 
-      updateActiveDocumentBboxes((previous) => [...previous, nextBbox]);
-      setSelectedBboxId(nextId);
-      setEditingBboxId(null);
-    },
-    [currentPage, documentKey, pageSize, updateActiveDocumentBboxes]
-  );
-
-  const updateBboxRect = useCallback(
-    (bboxId: string, rect: PdfBboxRect) => {
-      const boundedRect = normalizeRectWithinBounds(rect, pageSize, BBOX_MIN_SIZE);
-      updateActiveDocumentBboxes((previous) => {
-        let didChange = false;
-        const next = previous.map((bbox) => {
-          if (bbox.id !== bboxId) {
-            return bbox;
-          }
-          didChange = true;
-          return {
-            ...bbox,
-            ...boundedRect
-          };
-        });
-
-        return didChange ? next : previous;
-      });
-    },
-    [pageSize, updateActiveDocumentBboxes]
-  );
-
-  const updateBboxEntityLabel = useCallback(
-    (bboxId: string, nextLabel: string) => {
-      updateActiveDocumentBboxes((previous) => {
-        let didChange = false;
-        const next = previous.map((bbox) => {
-          if (bbox.id !== bboxId) {
-            return bbox;
-          }
-          didChange = true;
-          return {
-            ...bbox,
-            entityLabel: nextLabel
-          };
-        });
-
-        return didChange ? next : previous;
-      });
-    },
-    [updateActiveDocumentBboxes]
-  );
-
-  const updateBboxInstanceNumber = useCallback(
-    (bboxId: string, nextNumber: number | null) => {
-      const safeNumber =
-        typeof nextNumber === "number" && Number.isFinite(nextNumber) && nextNumber > 0
-          ? Math.trunc(nextNumber)
-          : null;
-
-      updateActiveDocumentBboxes((previous) => {
-        let didChange = false;
-        const next = previous.map((bbox) => {
-          if (bbox.id !== bboxId) {
-            return bbox;
-          }
-          didChange = true;
-          return {
-            ...bbox,
-            instanceNumber: safeNumber
-          };
-        });
-
-        return didChange ? next : previous;
-      });
-    },
-    [updateActiveDocumentBboxes]
-  );
-
-  const deleteBbox = useCallback(
-    (bboxId: string) => {
-      updateActiveDocumentBboxes((previous) => {
-        const next = previous.filter((bbox) => bbox.id !== bboxId);
-        return next.length === previous.length ? previous : next;
-      });
-      setSelectedBboxId((previous) => (previous === bboxId ? null : previous));
-      setEditingBboxId((previous) => (previous === bboxId ? null : previous));
-    },
-    [updateActiveDocumentBboxes]
-  );
-
-  const registerCustomEntityLabel = useCallback((label: string) => {
-    const normalizedLabel = label.trim();
-    if (!normalizedLabel) {
+  const manualSave = useCallback(async () => {
+    if (!sessionIdentity) {
       return;
     }
 
-    setCustomEntityLabels((previous) => {
-      if (
-        previous.includes(normalizedLabel) ||
-        (DEFAULT_ARABIC_ENTITY_LABELS as readonly string[]).includes(normalizedLabel)
-      ) {
-        return previous;
-      }
-      return [...previous, normalizedLabel];
+    const sequence = saveStatusSequenceRef.current + 1;
+    saveStatusSequenceRef.current = sequence;
+    setSaveStatus("saving");
+
+    const revision = historyRef.current.present.revision;
+    const nextLifecycle: SaveLifecycleState = {
+      ...saveLifecycleRef.current,
+      lastManualSaveAt: Date.now(),
+      manualSavedRevision: revision
+    };
+
+    saveLifecycleRef.current = nextLifecycle;
+    setSaveLifecycle(nextLifecycle);
+    writeSnapshot(nextLifecycle, historyRef.current);
+
+    setSaveStatus("saved");
+    scheduleSaveStatusReset();
+  }, [scheduleSaveStatusReset, sessionIdentity, writeSnapshot]);
+
+  const markExported = useCallback(() => {
+    if (!sessionIdentity) {
+      return;
+    }
+
+    const nextLifecycle: SaveLifecycleState = {
+      ...saveLifecycleRef.current,
+      exportedRevision: historyRef.current.present.revision,
+      lastExportedAt: Date.now()
+    };
+
+    saveLifecycleRef.current = nextLifecycle;
+    setSaveLifecycle(nextLifecycle);
+    writeSnapshot(nextLifecycle, historyRef.current);
+  }, [sessionIdentity, writeSnapshot]);
+
+  const restoreSession = useCallback(() => {
+    if (!restoreSessionState.pendingSnapshot || !sessionIdentity) {
+      return;
+    }
+
+    const snapshot = restoreSessionState.pendingSnapshot;
+    if (snapshot.meta.identity.key !== sessionIdentity.key) {
+      return;
+    }
+
+    const restoredHistory = clonePersistedHistory(snapshot.history);
+    const restoredLifecycle: SaveLifecycleState = {
+      lastAutosaveAt: snapshot.meta.lastAutosaveAt,
+      lastManualSaveAt: snapshot.meta.lastManualSaveAt,
+      autosavedRevision: snapshot.meta.autosavedRevision,
+      manualSavedRevision: snapshot.meta.manualSavedRevision,
+      exportedRevision: snapshot.meta.exportedRevision,
+      lastExportedAt: snapshot.meta.lastExportedAt
+    };
+
+    setHistory(restoredHistory);
+    setSaveLifecycle(restoredLifecycle);
+    saveLifecycleRef.current = restoredLifecycle;
+    setSelectedBboxId(null);
+    setEditingBboxId(null);
+    setRestoreSessionState({
+      prompt: CLOSED_RESTORE_PROMPT,
+      pendingSnapshot: null
     });
-  }, []);
+  }, [restoreSessionState.pendingSnapshot, sessionIdentity]);
+
+  const skipRestoreSession = useCallback(() => {
+    const identityKey = restoreSessionState.prompt.identityKey;
+    if (identityKey) {
+      skippedRestoreKeyRef.current = identityKey;
+    }
+
+    setRestoreSessionState({
+      prompt: CLOSED_RESTORE_PROMPT,
+      pendingSnapshot: null
+    });
+  }, [restoreSessionState.prompt.identityKey]);
+
+  const canUndo = history.past.length > 0;
+  const canRedo = history.future.length > 0;
+  const canSave = Boolean(sessionIdentity) && history.present.revision > 0;
+  const hasDirtyChanges = history.present.revision !== saveLifecycle.manualSavedRevision;
+  const hasUnexportedChanges =
+    history.present.bboxes.length > 0 && history.present.revision !== saveLifecycle.exportedRevision;
+  const hasLossRisk = history.present.bboxes.length > 0 && (hasDirtyChanges || hasUnexportedChanges);
 
   return {
     bboxes,
     currentPageBboxes,
     selectedBboxId,
     editingBboxId,
-    entityOptions,
+    canPaste: mutationActions.canPaste,
+    canUndo,
+    canRedo,
+    canSave,
+    hasLossRisk,
+    saveStatus,
+    lastAutosaveAt: saveLifecycle.lastAutosaveAt,
+    lastManualSaveAt: saveLifecycle.lastManualSaveAt,
+    restorePromptState: restoreSessionState.prompt,
+    entityOptions: mutationActions.entityOptions,
     selectBbox,
     startEditingBbox,
-    createBbox,
-    updateBboxRect,
-    updateBboxEntityLabel,
-    updateBboxInstanceNumber,
-    deleteBbox,
-    registerCustomEntityLabel
+    createBbox: mutationActions.createBbox,
+    copyBbox: mutationActions.copyBbox,
+    duplicateBbox: mutationActions.duplicateBbox,
+    pasteClipboardToCurrentPage: mutationActions.pasteClipboardToCurrentPage,
+    updateBboxRect: mutationActions.updateBboxRect,
+    updateBboxEntityLabel: mutationActions.updateBboxEntityLabel,
+    updateBboxInstanceNumber: mutationActions.updateBboxInstanceNumber,
+    deleteBbox: mutationActions.deleteBbox,
+    registerCustomEntityLabel: mutationActions.registerCustomEntityLabel,
+    undo,
+    redo,
+    manualSave,
+    markExported,
+    restoreSession,
+    skipRestoreSession
   };
 }

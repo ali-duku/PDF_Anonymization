@@ -9,7 +9,7 @@ Use semantic versioning and keep versions aligned in:
 - `src/appMeta.ts`
 - `CHANGELOG.md`
 
-Current baseline: `0.4.0` (2026-03-26).
+Current baseline: `0.5.0` (2026-03-28).
 
 ## Definition of Done
 
@@ -32,11 +32,19 @@ Do not reintroduce removed legacy domains without an explicit scoped feature req
 - Text editing/copy workflows
 - Previous bbox editing system
 
-UI baseline in v0.4.0:
+UI baseline in v0.5.0:
 
-- Top header remains a compact single row and contains the Export PDF action.
-- Viewer toolbar remains a compact single row and contains loading, page, and zoom actions (bbox creation is direct drag on the page).
-- Bboxes are managed inside page-coordinate bounds with resize/move/delete/edit interactions in the viewer stage.
+- Top header remains a compact single row and contains Save, Export PDF, and What&apos;s New actions.
+- Viewer toolbar remains a compact single row and contains loading/source controls, page controls, zoom actions, undo/redo actions, and a dedicated Paste group (bbox creation is direct drag on the page).
+- Bboxes are managed inside page-coordinate bounds with resize/move/delete/duplicate/copy/edit interactions in the viewer stage.
+- Copied bboxes can be pasted from the viewer toolbar onto the current page; duplicate and paste must preserve geometry semantics with deterministic in-bounds clamping.
+- Bbox action icons should remain modern/translucent with concise non-blocking tooltips and clear semantic iconography for Delete, Duplicate, and Copy.
+- Pressing Enter while a bbox is selected should open the inline editor when no draft/drag edit interaction is active.
+- Bbox action visibility must remain stable while the pointer moves from bbox content to action controls.
+- Session persistence must store only bbox/session metadata and never raw PDF file bytes/blobs.
+- Autosave must run after bbox/session mutations and present subtle in-viewer feedback.
+- Restore prompts must appear for matching persisted sessions before replacing live state.
+- Close warnings should use browser-supported `beforeunload` behavior when work is dirty or not yet exported.
 - Export generates one anonymized PDF across all pages when a PDF is loaded and bboxes exist, preserving original document structure/selectable text outside anonymized regions.
 - Anonymized regions are irreversibly redacted through secure PDF mutation (no removable overlay-only masking).
 - Preview/export label ordering and border thickness should stay aligned through shared bbox formatting/visual constants.

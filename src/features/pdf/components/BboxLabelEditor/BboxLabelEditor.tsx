@@ -231,6 +231,18 @@ function BboxLabelEditorComponent({
             type="text"
             inputMode="numeric"
             value={numberInputValue}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                commitCurrentValueAndClose();
+                return;
+              }
+
+              if (event.key === "Enter") {
+                event.preventDefault();
+                commitCurrentValueAndClose();
+              }
+            }}
             onChange={(event) => {
               const rawValue = event.currentTarget.value;
               const normalizedDigits = normalizeArabicDigitsToLatin(rawValue).replace(/[^\d]/g, "");

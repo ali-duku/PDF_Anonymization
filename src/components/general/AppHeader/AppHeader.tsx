@@ -5,11 +5,23 @@ import type { AppHeaderProps } from "./AppHeader.types";
 function AppHeaderComponent({
   appMeta,
   onOpenWhatsNew,
+  onSaveSession,
+  canSaveSession,
+  saveStatus,
   onExportPdf,
   canExportPdf,
   isExportingPdf,
   exportStatusMessage
 }: AppHeaderProps) {
+  const saveButtonTitle = !canSaveSession
+    ? "Load a PDF and make bbox changes to enable Save."
+    : saveStatus === "saving"
+      ? "Saving session state..."
+      : "Save current bbox/session state (PDF bytes are never persisted).";
+
+  const saveButtonLabel =
+    saveStatus === "saving" ? "Saving..." : saveStatus === "saved" ? "Saved" : "Save";
+
   const exportButtonTitle = isExportingPdf
     ? "Export in progress..."
     : exportStatusMessage
@@ -26,6 +38,17 @@ function AppHeaderComponent({
         <span className={styles.versionBadge} aria-label={`Version ${appMeta.version}`}>
           v{appMeta.version}
         </span>
+        <button
+          type="button"
+          className={`${styles.actionButton} ${styles.actionButtonSecondary} ${saveStatus === "saved" ? styles.actionButtonSaved : ""}`}
+          disabled={!canSaveSession || saveStatus === "saving"}
+          title={saveButtonTitle}
+          onClick={() => {
+            void onSaveSession();
+          }}
+        >
+          {saveButtonLabel}
+        </button>
         <button
           type="button"
           className={`${styles.actionButton} ${styles.actionButtonSecondary}`}

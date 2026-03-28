@@ -1,0 +1,60 @@
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  background: rgba(5, 9, 14, 0.55);
+  z-index: 11;
+}
+
+.card {
+  width: min(420px, 100%);
+  border: 1px solid var(--line);
+  border-radius: var(--ui-panel-radius);
+  background: linear-gradient(145deg, rgba(18, 29, 40, 0.96), rgba(13, 21, 30, 0.97));
+  padding: 14px;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 10px;
+}
+
+.title {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.description {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.secondaryButton,
+.primaryButton {
+  height: var(--ui-control-height);
+  border-radius: var(--ui-control-radius);
+  padding: 0 11px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid var(--line);
+}
+
+.secondaryButton {
+  color: var(--text);
+  background: rgba(20, 32, 45, 0.92);
+}
+
+.primaryButton {
+  color: var(--bg);
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--accent), #67f2df);
+}

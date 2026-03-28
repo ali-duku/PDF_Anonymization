@@ -7,6 +7,8 @@ import {
   type MutableRefObject
 } from "react";
 import type { RetrievedPdfDocument, RetrievedPdfMeta } from "../../../types/pdfRetrieval";
+import { buildUploadSessionIdentitySeed } from "../utils/pdfSessionIdentity";
+import { buildUploadPdfFingerprint } from "../utils/uploadFingerprint";
 
 export type ManualPdfUploadStatus = "idle" | "success" | "error";
 
@@ -32,18 +34,32 @@ function isPdfFile(file: File): boolean {
   return file.type.toLowerCase().startsWith("application/pdf") || file.name.toLowerCase().endsWith(".pdf");
 }
 
-function buildManualMeta(file: File): RetrievedPdfMeta {
-  const now = new Date().toISOString();
+function buildFallbackFingerprint(file: File): string {
+  return `${file.name}-${file.size}-${file.lastModified}`;
+}
+
+async function buildManualMeta(file: File): Promise<RetrievedPdfMeta> {
+  const updatedAt = new Date(file.lastModified || Date.now()).toISOString();
+  const fingerprint = await buildUploadPdfFingerprint(file).catch(() => buildFallbackFingerprint(file));
+  const identitySeed = buildUploadSessionIdentitySeed({
+    fileName: file.name || "uploaded.pdf",
+    fileSize: file.size,
+    updatedAt,
+    uploadFingerprint: fingerprint
+  });
 
   return {
-    id: `upload-${Date.now()}`,
+    id: `upload-${fingerprint.slice(0, 12)}`,
     fileName: file.name || "uploaded.pdf",
     bucketKey: `local/${file.name || "uploaded.pdf"}`,
     contentType: file.type || "application/pdf",
     fileSize: file.size,
-    updatedAt: now,
+    updatedAt,
     requestUrl: "local://upload",
-    retrievedAt: now
+    retrievedAt: new Date().toISOString(),
+    sourceType: "upload",
+    sessionIdentitySeed: identitySeed,
+    uploadFingerprint: fingerprint
   };
 }
 
@@ -69,28 +85,32 @@ export function useManualPdfUpload({
         return;
       }
 
+      const inputElement = event.currentTarget;
+
       if (!isPdfFile(file)) {
         setState((previous) => ({
           ...previous,
           status: "error",
           errorMessage: "Only PDF files are supported."
         }));
-        event.currentTarget.value = "";
+        inputElement.value = "";
         return;
       }
 
-      const nextDocument: RetrievedPdfDocument = {
-        blob: file,
-        meta: buildManualMeta(file)
-      };
+      void (async () => {
+        const nextDocument: RetrievedPdfDocument = {
+          blob: file,
+          meta: await buildManualMeta(file)
+        };
 
-      setState({
-        status: "success",
-        errorMessage: null,
-        document: nextDocument
-      });
-      onDocumentLoaded?.(nextDocument);
-      event.currentTarget.value = "";
+        setState({
+          status: "success",
+          errorMessage: null,
+          document: nextDocument
+        });
+        onDocumentLoaded?.(nextDocument);
+        inputElement.value = "";
+      })();
     },
     [onDocumentLoaded]
   );

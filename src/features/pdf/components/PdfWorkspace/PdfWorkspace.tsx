@@ -1,13 +1,35 @@
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import type { PdfLoadStatus } from "../../../../types/pdf";
+import { SESSION_SWITCH_WARNING_DESCRIPTION, SESSION_SWITCH_WARNING_TITLE } from "../../constants/session";
+import { useBeforeUnloadProtection } from "../../hooks/useBeforeUnloadProtection";
 import { useManualPdfUpload } from "../../hooks/useManualPdfUpload";
 import { usePdfDocument } from "../../hooks/usePdfDocument";
 import { usePdfRetrieval } from "../../hooks/usePdfRetrieval";
+import type { PdfSessionController } from "../../types/session";
 import { PdfViewerShell } from "../PdfViewerShell/PdfViewerShell";
+import { SessionRiskPrompt } from "../SessionRiskPrompt/SessionRiskPrompt";
 import styles from "./PdfWorkspace.module.css";
 import type { PdfWorkspaceProps } from "./PdfWorkspace.types";
 
 type ActiveSource = "none" | "retrieval" | "upload";
+
+interface PendingRiskAction {
+  confirmLabel: string;
+  execute: () => void;
+}
+
+const DEFAULT_SESSION_CONTROLLER: PdfSessionController = {
+  canSave: false,
+  saveStatus: "idle",
+  lastAutosaveAt: null,
+  lastManualSaveAt: null,
+  canUndo: false,
+  canRedo: false,
+  hasLossRisk: false,
+  manualSave: async () => {
+    // No-op until a PDF session is active.
+  }
+};
 
 function buildDocumentLoadStatus(loadStatus: PdfLoadStatus, errorMessage?: string) {
   if (loadStatus === "loading") {
@@ -21,9 +43,37 @@ function buildDocumentLoadStatus(loadStatus: PdfLoadStatus, errorMessage?: strin
   return { text: "", tone: "neutral" as const };
 }
 
-function PdfWorkspaceComponent({ pdfRetrievalService, onExportControllerChange }: PdfWorkspaceProps) {
+function PdfWorkspaceComponent({
+  pdfRetrievalService,
+  onExportControllerChange,
+  onSessionControllerChange
+}: PdfWorkspaceProps) {
   const [activeSource, setActiveSource] = useState<ActiveSource>("none");
   const [retrievalInputValue, setRetrievalInputValue] = useState("");
+  const [sessionController, setSessionController] =
+    useState<PdfSessionController>(DEFAULT_SESSION_CONTROLLER);
+  const [pendingRiskAction, setPendingRiskAction] = useState<PendingRiskAction | null>(null);
+
+  useBeforeUnloadProtection(sessionController.hasLossRisk);
+
+  useEffect(() => {
+    onSessionControllerChange?.(sessionController);
+  }, [onSessionControllerChange, sessionController]);
+
+  const runWithSessionRiskGuard = useCallback(
+    (action: () => void, confirmLabel: string) => {
+      if (!sessionController.hasLossRisk) {
+        action();
+        return;
+      }
+
+      setPendingRiskAction({
+        confirmLabel,
+        execute: action
+      });
+    },
+    [sessionController.hasLossRisk]
+  );
 
   const { state: retrievalState, requestDocument, retryLastRequest, resetRetrieval } = usePdfRetrieval({
     pdfRetrievalService,
@@ -116,15 +166,25 @@ function PdfWorkspaceComponent({ pdfRetrievalService, onExportControllerChange }
   const statusTone = loadStatus.text ? loadStatus.tone : sourceStatus.tone;
 
   const handleRetrieveDocument = useCallback(() => {
-    void requestDocument(retrievalInputValue);
-  }, [requestDocument, retrievalInputValue]);
+    runWithSessionRiskGuard(() => {
+      void requestDocument(retrievalInputValue);
+    }, "Continue");
+  }, [requestDocument, retrievalInputValue, runWithSessionRiskGuard]);
 
   const handleResetWorkspace = useCallback(() => {
-    setRetrievalInputValue("");
-    resetRetrieval();
-    resetManualUpload();
-    setActiveSource("none");
-  }, [resetManualUpload, resetRetrieval]);
+    runWithSessionRiskGuard(() => {
+      setRetrievalInputValue("");
+      resetRetrieval();
+      resetManualUpload();
+      setActiveSource("none");
+    }, "Reset");
+  }, [resetManualUpload, resetRetrieval, runWithSessionRiskGuard]);
+
+  const handleManualFilePick = useCallback(() => {
+    runWithSessionRiskGuard(() => {
+      handleFilePick();
+    }, "Replace PDF");
+  }, [handleFilePick, runWithSessionRiskGuard]);
 
   return (
     <section className={styles.workspace} aria-label="PDF anonymization workspace">
@@ -144,24 +204,40 @@ function PdfWorkspaceComponent({ pdfRetrievalService, onExportControllerChange }
         pageHeight={pdfState.pageHeight}
         pageBaseWidth={pdfState.pageBaseWidth}
         pageBaseHeight={pdfState.pageBaseHeight}
-        documentKey={pdfState.documentMeta?.id ?? null}
+        documentMeta={pdfState.documentMeta}
         sourcePdfBlob={activeDocument?.blob ?? null}
         sourceFileName={activeDocument?.meta.fileName ?? null}
         pageStageRef={pdfState.pageStageRef}
         canvasContainerRef={pdfState.canvasContainerRef}
         canvasRef={pdfState.canvasRef}
         onExportControllerChange={onExportControllerChange}
+        onSessionControllerChange={setSessionController}
         onRetrievalInputChange={setRetrievalInputValue}
         onRetrieveDocument={handleRetrieveDocument}
         onResetWorkspace={handleResetWorkspace}
         onRetryRetrieval={retryLastRequest}
-        onManualFilePick={handleFilePick}
+        onManualFilePick={handleManualFilePick}
         onManualFileChange={handleFileChange}
         onMovePage={pdfState.movePage}
         onPageInput={pdfState.handlePageInput}
         onZoomOut={pdfState.handleZoomOut}
         onZoomIn={pdfState.handleZoomIn}
         onFitToWidth={pdfState.handleFitToWidth}
+      />
+
+      <SessionRiskPrompt
+        isOpen={pendingRiskAction !== null}
+        title={SESSION_SWITCH_WARNING_TITLE}
+        description={SESSION_SWITCH_WARNING_DESCRIPTION}
+        confirmLabel={pendingRiskAction?.confirmLabel}
+        onCancel={() => {
+          setPendingRiskAction(null);
+        }}
+        onConfirm={() => {
+          const action = pendingRiskAction;
+          setPendingRiskAction(null);
+          action?.execute();
+        }}
       />
     </section>
   );

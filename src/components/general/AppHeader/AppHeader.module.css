@@ -64,6 +64,12 @@
   border-color: var(--line);
 }
 
+.actionButtonSaved {
+  border-color: rgba(67, 209, 123, 0.45);
+  color: #d6ffe8;
+  background: rgba(27, 65, 44, 0.92);
+}
+
 .actionButton:disabled {
   opacity: 0.58;
   cursor: not-allowed;

@@ -11,10 +11,17 @@ import {
 import {
   BBOX_BORDER_COLOR,
   BBOX_BORDER_WIDTH,
+  BBOX_ACTION_BUTTON_SIZE,
+  BBOX_ACTION_CLUSTER_GAP,
+  BBOX_ACTION_CLUSTER_OFFSET_X,
+  BBOX_ACTION_CLUSTER_OFFSET_Y,
+  BBOX_ACTION_CLUSTER_Z_INDEX,
+  BBOX_ACTION_GLASS_BLUR,
+  BBOX_ACTION_HOVER_LIFT,
+  BBOX_ACTION_ICON_SIZE,
+  BBOX_ACTION_TOOLTIP_OFFSET,
+  BBOX_ACTION_TOOLTIP_Z_INDEX,
   BBOX_CREATE_DRAG_THRESHOLD_PX,
-  BBOX_DELETE_BUTTON_OFFSET_X,
-  BBOX_DELETE_BUTTON_OFFSET_Y,
-  BBOX_DELETE_BUTTON_SIZE,
   BBOX_EDITOR_MIN_WIDTH,
   BBOX_FILL_COLOR,
   BBOX_HANDLE_SIZE,
@@ -106,6 +113,8 @@ function BboxOverlayLayerComponent({
   onSelectBbox,
   onStartEditingBbox,
   onDeleteBbox,
+  onDuplicateBbox,
+  onCopyBbox,
   onCreateBbox,
   onUpdateBboxRect,
   onUpdateBboxEntityLabel,
@@ -395,9 +404,16 @@ function BboxOverlayLayerComponent({
         {
           "--bbox-border-width": `${BBOX_BORDER_WIDTH}px`,
           "--bbox-handle-size": `${BBOX_HANDLE_SIZE}px`,
-          "--bbox-delete-button-size": `${BBOX_DELETE_BUTTON_SIZE}px`,
-          "--bbox-delete-button-offset-x": `${BBOX_DELETE_BUTTON_OFFSET_X}px`,
-          "--bbox-delete-button-offset-y": `${BBOX_DELETE_BUTTON_OFFSET_Y}px`,
+          "--bbox-action-button-size": `${BBOX_ACTION_BUTTON_SIZE}px`,
+          "--bbox-action-icon-size": `${BBOX_ACTION_ICON_SIZE}px`,
+          "--bbox-action-cluster-gap": `${BBOX_ACTION_CLUSTER_GAP}px`,
+          "--bbox-action-cluster-offset-x": `${BBOX_ACTION_CLUSTER_OFFSET_X}px`,
+          "--bbox-action-cluster-offset-y": `${BBOX_ACTION_CLUSTER_OFFSET_Y}px`,
+          "--bbox-action-cluster-z-index": `${BBOX_ACTION_CLUSTER_Z_INDEX}`,
+          "--bbox-action-glass-blur": `${BBOX_ACTION_GLASS_BLUR}px`,
+          "--bbox-action-hover-lift": `${BBOX_ACTION_HOVER_LIFT}px`,
+          "--bbox-action-tooltip-offset": `${BBOX_ACTION_TOOLTIP_OFFSET}px`,
+          "--bbox-action-tooltip-z-index": `${BBOX_ACTION_TOOLTIP_Z_INDEX}`,
           "--bbox-layer-z-index": `${BBOX_LAYER_Z_INDEX}`,
           "--bbox-editor-z-index": `${BBOX_LABEL_EDITOR_Z_INDEX}`,
           "--bbox-editor-min-width": `${BBOX_EDITOR_MIN_WIDTH}px`,
@@ -425,9 +441,27 @@ function BboxOverlayLayerComponent({
           return;
         }
 
+        if (event.key === "Escape" && selectedBboxId) {
+          event.preventDefault();
+          onSelectBbox(null);
+          return;
+        }
+
         if ((event.key === "Delete" || event.key === "Backspace") && selectedBboxId && !editingBboxId) {
           event.preventDefault();
           onDeleteBbox(selectedBboxId);
+          return;
+        }
+
+        if (
+          event.key === "Enter" &&
+          selectedBboxId &&
+          !editingBboxId &&
+          !draftCreation &&
+          !activeInteraction
+        ) {
+          event.preventDefault();
+          onStartEditingBbox(selectedBboxId);
         }
       }}
     >
@@ -443,6 +477,8 @@ function BboxOverlayLayerComponent({
           onStartMove={startMoveInteraction}
           onStartResize={startResizeInteraction}
           onDelete={onDeleteBbox}
+          onDuplicate={onDuplicateBbox}
+          onCopy={onCopyBbox}
           onOpenEditor={onStartEditingBbox}
           onCloseEditor={closeEditor}
           onLabelChange={onUpdateBboxEntityLabel}

@@ -1,7 +1,9 @@
 import type { ChangeEvent, RefObject } from "react";
 import type { PdfLoadStatus } from "../../../../types/pdf";
+import type { RetrievedPdfMeta } from "../../../../types/pdfRetrieval";
 import type { PdfRetrievalStatus } from "../../hooks/usePdfRetrieval";
 import type { PdfExportController } from "../../types/export";
+import type { PdfSessionController } from "../../types/session";
 
 export interface PdfDocumentStageProps {
   hasPdf: boolean;
@@ -19,13 +21,14 @@ export interface PdfDocumentStageProps {
   pageHeight: number;
   pageBaseWidth: number;
   pageBaseHeight: number;
-  documentKey: string | null;
+  documentMeta: RetrievedPdfMeta | null;
   sourcePdfBlob: Blob | null;
   sourceFileName: string | null;
   pageStageRef: RefObject<HTMLDivElement>;
   canvasContainerRef: RefObject<HTMLDivElement>;
   canvasRef: RefObject<HTMLCanvasElement>;
   onExportControllerChange?: (controller: PdfExportController) => void;
+  onSessionControllerChange?: (controller: PdfSessionController) => void;
   onRetrievalInputChange: (value: string) => void;
   onRetrieveDocument: () => void;
   onResetWorkspace: () => void;

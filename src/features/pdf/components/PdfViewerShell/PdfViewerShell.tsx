@@ -19,13 +19,14 @@ function PdfViewerShellComponent({
   pageHeight,
   pageBaseWidth,
   pageBaseHeight,
-  documentKey,
+  documentMeta,
   sourcePdfBlob,
   sourceFileName,
   pageStageRef,
   canvasContainerRef,
   canvasRef,
   onExportControllerChange,
+  onSessionControllerChange,
   onRetrievalInputChange,
   onRetrieveDocument,
   onResetWorkspace,
@@ -56,13 +57,14 @@ function PdfViewerShellComponent({
         pageHeight={pageHeight}
         pageBaseWidth={pageBaseWidth}
         pageBaseHeight={pageBaseHeight}
-        documentKey={documentKey}
+        documentMeta={documentMeta}
         sourcePdfBlob={sourcePdfBlob}
         sourceFileName={sourceFileName}
         pageStageRef={pageStageRef}
         canvasContainerRef={canvasContainerRef}
         canvasRef={canvasRef}
         onExportControllerChange={onExportControllerChange}
+        onSessionControllerChange={onSessionControllerChange}
         onRetrievalInputChange={onRetrievalInputChange}
         onRetrieveDocument={onRetrieveDocument}
         onResetWorkspace={onResetWorkspace}

@@ -15,6 +15,8 @@ export interface BboxItemProps {
     event: ReactPointerEvent<HTMLButtonElement>
   ) => void;
   onDelete: (bboxId: string) => void;
+  onDuplicate: (bboxId: string) => void;
+  onCopy: (bboxId: string) => void;
   onOpenEditor: (bboxId: string) => void;
   onCloseEditor: () => void;
   onLabelChange: (bboxId: string, nextLabel: string) => void;

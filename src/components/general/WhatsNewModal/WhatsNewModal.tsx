@@ -20,11 +20,11 @@ function WhatsNewModalComponent({ isOpen, appMeta, onClose }: WhatsNewModalProps
           <h2 id="whats-new-title">What&apos;s New</h2>
           <button
             type="button"
-            className={styles.dialogCloseButton}
+            className={styles.closeButton}
             onClick={onClose}
-            aria-label="Close what's new dialog"
+            aria-label="Close release notes"
           >
-            <span className={styles.dialogCloseGlyph} aria-hidden="true" />
+            X
           </button>
         </div>
 

@@ -2,105 +2,75 @@
 
 ## Versioning
 
-- Use semantic versioning (`MAJOR.MINOR.PATCH`).
-- Update version in:
-  - `package.json`
-  - `src/appMeta.ts` (`APP_META.version`)
+Use semantic versioning and keep versions aligned in:
 
-## Current Baseline
+- `package.json`
+- `package-lock.json`
+- `src/appMeta.ts`
+- `CHANGELOG.md`
 
-- Latest shipped version: `0.7.4`.
-- Latest viewer baseline includes:
-  - retrieval-by-ID as the primary PDF flow,
-  - session-only manual upload bypass as secondary flow,
-  - viewport-aware region editor scrolling,
-  - draggable outer region-dialog separator with keyboard resize support,
-  - per-tab session persistence for outer dialog pane width,
-  - searchable entity dropdown field for anonymization entity selection (entity picker + span editor),
-  - immediate entity auto-apply for both new anonymized-span and edit-span dialogs (no explicit span `Apply`/`Save` buttons),
-  - topmost-first nested dialog dismissal for span dialogs (`Escape` and outside-click close the active span dialog first, keeping the parent region dialog open),
-  - app-level persistent display settings with global top-header font-size control (Small/Medium/Large),
-  - app-level persistent top-header entity-profile selector with canonical profile catalog wiring for anonymization entity options,
-  - app-level persistent top-header default text-direction toggle (`RTL`/`LTR`) used as the region-editor session default while preserving local editor direction toggle behavior,
-  - app-level persistent top-header structural bbox editing toggle (`BBox structure`) that canonically gates move/resize/add/delete/full-bbox copy/paste operations across toolbar, overlay controls, and region dialog handler paths,
-  - extended capability semantics where `BBox structure` OFF also blocks raw text editing and text-only copy actions while still allowing anonymization add/edit/delete over existing text,
-  - default PDF load zoom set to 150% (without implicit auto-fit on initial load),
-  - region-context snippet zoom default/reset set to 75%,
-  - compact translucent on-canvas bbox icon controls (pen edit + trash delete),
-  - compact inline on-canvas bbox label selector beside existing overlay action icons (copy/text-copy/edit/delete),
-  - on-canvas bbox full-copy and text-only copy controls,
-  - toolbar bbox paste action beside `Add BBox`,
-  - region-dialog `Paste BBox` action to apply copied full-bbox payload into the active region draft (in-place update),
-  - canonical bbox projection helpers shared by overlay rendering and snippet crop conversion,
-  - explicit normalized bbox input contract validation (`x1/y1/x2/y2` in `[0..1]`) during overlay parse,
-  - identical page-stage/canvas pixel basis to prevent overlay drift under responsive container constraints,
-  - toolbar `Fit` label and arrow-based page nav controls (`←`/`→`),
-  - direct on-canvas delete routed through the same canonical delete behavior used by the region dialog,
-  - snippet zoom + save-prevention UX controls,
-  - current-page bbox previous/next navigation,
-  - Save-in-dialog auto-advance to next bbox on successful save only, routed through canonical page-region next navigation logic,
-  - region dialog split-pane sizing guardrails with one canonical runtime constraint solver (interaction clamp + grid/pane `min-width` enforcement), anchored to the dialog shell inner coordinate space so separator drag is always container-bounded while preserving intrinsic protected-row minima plus pane chrome with runtime remeasurement on resize/font/content changes (no compact/stacked fallback path and no protected-row `min-width` feedback-loop constraints),
-  - region context snippet zoom that initializes/resets at 50% while preserving explicit zoom-driven scaling behavior,
-  - viewport-anchored span editor popover,
-  - fenced HTML table rendering in Region Editor Preview with raw-offset span projection.
+Current baseline: `0.5.0` (2026-03-28).
 
-## What's New Updates
+## Definition of Done
 
-Release notes are managed in `src/appMeta.ts`:
-
-1. Add a new entry at the top of `releaseNotes`.
-2. Keep highlights concise and user-facing.
-3. Keep `APP_META.version` aligned with the latest release entry.
-4. Keep `package.json` version aligned with `APP_META.version`.
-
-## Mandatory Definition of Done
-
-1. **What's New updated** in `src/appMeta.ts`.
-2. **Docs updated** (`README.md`, `docs/ARCHITECTURE.md`, `docs/MAINTENANCE.md`) when relevant.
-3. **Build passes** (`npm run build`).
-4. **History behavior verified** if undoable transitions changed.
-
-## Frontend Structure Rules
-
-- Every component folder must include exactly:
-  - `ComponentName.tsx`
-  - `ComponentName.types.ts`
-  - `ComponentName.module.css`
-- Shared shell UI belongs in `src/components/general`.
-- Feature UI stays in its domain (`src/features/setup`, `src/features/pdf`, `src/features/viewer`).
-- Hooks go in feature `hooks/` unless truly cross-feature.
-- Services contain orchestration/data-access only.
-- Utilities remain pure and side-effect free.
-- Constants hold static catalogs/config only.
-
-## Service Boundaries
-
-- Keep `AnnotationService`, `JsonService`, and `PdfRetrievalService` contracts stable in `src/types/services.ts`.
-- `src/services/annotationService.ts` should remain an orchestrator.
-- Parsing/matching/patching/error helper logic belongs in `src/services/annotation/*`.
-- PDF retrieval transport and backend simulation logic stays in `src/features/pdf/services/*`.
-- Manual upload bypass remains UI-level/session-level logic in `src/features/pdf/hooks/*` and must not introduce local persistence services.
-
-## Build + Deploy Checklist
-
-1. Run:
+1. Update release metadata (`package.json`, lockfile, `src/appMeta.ts`, `CHANGELOG.md`).
+2. Update docs when architecture or workflow changes (`README.md`, `docs/ARCHITECTURE.md`, `docs/MAINTENANCE.md`).
+3. Run and pass build:
 
 ```bash
 npm run build
 ```
 
-2. Verify `dist/index.html` exists.
-3. Publish `dist/` to GitHub Pages target branch.
+## Product Scope Guardrails
 
-## BBox Diagnostics
+Keep the product focused on PDF anonymization.
 
-- To audit bbox/page geometry in development, run with `VITE_VIEWER_BBOX_DEBUG=1`.
-- This enables concise console diagnostics for parse-time bbox range summary and stage/canvas basis mismatch detection.
+Do not reintroduce removed legacy domains without an explicit scoped feature request:
+
+- Legacy secondary-tab workflow
+- JSON parsing/generation pipelines
+- Text editing/copy workflows
+- Previous bbox editing system
+
+UI baseline in v0.5.0:
+
+- Top header remains a compact single row and contains Save, Export PDF, and What&apos;s New actions.
+- Viewer toolbar remains a compact single row and contains loading/source controls, page controls, zoom actions, undo/redo actions, and a dedicated Paste group (bbox creation is direct drag on the page).
+- Bboxes are managed inside page-coordinate bounds with resize/move/delete/duplicate/copy/edit interactions in the viewer stage.
+- Copied bboxes can be pasted from the viewer toolbar onto the current page; duplicate and paste must preserve geometry semantics with deterministic in-bounds clamping.
+- Bbox action icons should remain modern/translucent with concise non-blocking tooltips and clear semantic iconography for Delete, Duplicate, and Copy.
+- Pressing Enter while a bbox is selected should open the inline editor when no draft/drag edit interaction is active.
+- Bbox action visibility must remain stable while the pointer moves from bbox content to action controls.
+- Session persistence must store only bbox/session metadata and never raw PDF file bytes/blobs.
+- Autosave must run after bbox/session mutations and present subtle in-viewer feedback.
+- Restore prompts must appear for matching persisted sessions before replacing live state.
+- Close warnings should use browser-supported `beforeunload` behavior when work is dirty or not yet exported.
+- Export generates one anonymized PDF across all pages when a PDF is loaded and bboxes exist, preserving original document structure/selectable text outside anonymized regions.
+- Anonymized regions are irreversibly redacted through secure PDF mutation (no removable overlay-only masking).
+- Preview/export label ordering and border thickness should stay aligned through shared bbox formatting/visual constants.
+- Viewer/control sizing should use shared CSS tokens from `src/styles.css` instead of repeating hardcoded pixel values.
+
+## Component Structure Rule
+
+Every component folder must include:
+
+- `ComponentName.tsx`
+- `ComponentName.types.ts`
+- `ComponentName.module.css`
+
+## Retrieval Fixture Notes
+
+The simulated backend currently maps file ID `123456` to `data/input.pdf`.
+
+Error test IDs remain available:
+
+- `401`, `403`, `500`, `422`, `502`
 
 ## Release Checklist
 
-1. Update `package.json` version.
-2. Update `APP_META.version` and prepend a `releaseNotes` entry.
-3. Update docs per Definition of Done.
-4. Run `npm run build`.
+1. Update version metadata in all required files.
+2. Add a new top entry to `src/appMeta.ts` release notes.
+3. Add a matching entry in `CHANGELOG.md`.
+4. Update docs for behavioral/architectural changes.
+5. Run `npm run build`.
 

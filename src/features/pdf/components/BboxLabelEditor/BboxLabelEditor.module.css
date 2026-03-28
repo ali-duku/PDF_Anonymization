@@ -1,0 +1,100 @@
+.editor {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: var(--bbox-editor-z-index);
+  min-width: var(--bbox-editor-min-width);
+  border: 1px solid var(--line);
+  border-radius: var(--ui-group-radius);
+  background: linear-gradient(145deg, rgba(18, 29, 40, 0.98), rgba(13, 21, 30, 0.98));
+  color: var(--text);
+  box-shadow: var(--shadow);
+  padding: 8px;
+  display: grid;
+  gap: 8px;
+}
+
+.headerRow {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.comboboxField,
+.numberField {
+  position: relative;
+  display: grid;
+  gap: 4px;
+}
+
+.fieldLabel {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-family: "IBM Plex Mono", monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.comboboxInput,
+.numberInput {
+  width: 100%;
+  height: var(--ui-control-height);
+  border: 1px solid var(--line);
+  border-radius: var(--ui-control-radius);
+  background: #0a1219;
+  color: var(--text);
+  padding: 0 8px;
+  font-size: 0.83rem;
+  outline: none;
+}
+
+.comboboxInput:focus-visible,
+.numberInput:focus-visible {
+  border-color: rgba(45, 212, 191, 0.7);
+  box-shadow: 0 0 0 1px rgba(45, 212, 191, 0.28);
+}
+
+.numberField {
+  width: 84px;
+}
+
+.numberInput {
+  text-align: center;
+}
+
+.optionsList {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  max-height: 168px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--ui-control-radius);
+  background: rgba(8, 14, 20, 0.98);
+  display: grid;
+  gap: 3px;
+}
+
+.optionButton {
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  padding: 5px 8px;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.optionButton:hover {
+  background: rgba(45, 212, 191, 0.12);
+  border-color: rgba(45, 212, 191, 0.25);
+}
+
+.optionButtonActive {
+  background: rgba(45, 212, 191, 0.18);
+  border-color: rgba(45, 212, 191, 0.38);
+}
+

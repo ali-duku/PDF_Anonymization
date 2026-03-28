@@ -34,23 +34,21 @@ interface SimulatedErrorResponse {
 const RECORDS_BY_ID: Record<string, SimulatedBucketRecord> = {
   "123456": {
     id: "123456",
-    fileName: "المذكرة الشارحة-.pdf",
-    bucketKey: "moj-shour_human-poc\\المذكرة الشارحة-.pdf",
+    fileName: "input.pdf",
+    bucketKey: "data/input.pdf",
     contentType: "application/pdf",
-    updatedAt: "2026-03-12T15:05:34.000Z",
-    assetUrl: new URL("../../../../moj-shour_human-poc/المذكرة الشارحة-.pdf", import.meta.url).href
+    updatedAt: "2026-03-26T09:00:00.000Z",
+    assetUrl: new URL("../../../../data/input.pdf", import.meta.url).href
   }
 };
 
 function isAbortError(error: unknown): boolean {
-  return (
-    error instanceof DOMException
-      ? error.name === "AbortError"
-      : typeof error === "object" &&
+  return error instanceof DOMException
+    ? error.name === "AbortError"
+    : typeof error === "object" &&
         error !== null &&
         "name" in error &&
-        (error as { name?: string }).name === "AbortError"
-  );
+        (error as { name?: string }).name === "AbortError";
 }
 
 function sleepWithAbort(ms: number, signal?: AbortSignal): Promise<void> {
@@ -128,7 +126,7 @@ export async function simulateGetFileEndpoint(
       data: {
         id,
         fileName: "invalid-payload.pdf",
-        bucketKey: "invalid\\invalid-payload.pdf",
+        bucketKey: "invalid/invalid-payload.pdf",
         contentType: "application/pdf",
         updatedAt: new Date().toISOString(),
         pdfBlob: new Blob(["not-a-real-pdf"], { type: "application/pdf" })
@@ -137,7 +135,6 @@ export async function simulateGetFileEndpoint(
   }
 
   if (id === "502") {
-    // Intentionally malformed to exercise response guard handling.
     return {
       ok: true,
       status: 200,
@@ -156,7 +153,7 @@ export async function simulateGetFileEndpoint(
   try {
     const response = await fetch(record.assetUrl, { signal });
     if (!response.ok) {
-      return buildError(500, "UNKNOWN_ERROR", "Could not read file bytes from the secure bucket.");
+      return buildError(500, "UNKNOWN_ERROR", "Could not read file bytes from the simulated secure bucket.");
     }
 
     const pdfBlob = await response.blob();

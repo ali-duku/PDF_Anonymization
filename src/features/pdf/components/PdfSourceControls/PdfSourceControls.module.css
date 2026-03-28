@@ -1,0 +1,73 @@
+.controlsRow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ui-group-gap);
+  border: 1px solid var(--line);
+  border-radius: var(--ui-group-radius);
+  background: rgba(8, 14, 20, 0.74);
+  min-height: var(--viewer-toolbar-box-height, calc(var(--ui-control-height) + (var(--ui-group-padding-block) * 2)));
+  padding: var(--ui-group-padding-block) var(--ui-group-padding-inline);
+  flex: 0 0 auto;
+}
+
+.inlineLabel {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-family: "IBM Plex Mono", monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.identifierInput {
+  width: 108px;
+  border: 1px solid var(--line);
+  border-radius: var(--ui-control-radius);
+  background: #0a1219;
+  color: var(--text);
+  height: var(--ui-control-height);
+  padding: 0 8px;
+}
+
+.buttonPrimary,
+.buttonSecondary {
+  border-radius: var(--ui-control-radius);
+  font-weight: 700;
+  font-size: 0.82rem;
+  height: var(--ui-control-height);
+  padding: 0 var(--ui-control-padding-inline);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: transform var(--ui-fast-transition), filter var(--ui-fast-transition);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.buttonPrimary {
+  color: var(--bg);
+  background: linear-gradient(135deg, var(--accent), #67f2df);
+}
+
+.buttonSecondary {
+  color: var(--text);
+  background: rgba(20, 32, 45, 0.92);
+  border-color: var(--line);
+}
+
+.buttonPrimary:hover,
+.buttonSecondary:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.03);
+}
+
+.buttonPrimary:disabled,
+.buttonSecondary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.hiddenInput {
+  display: none;
+}

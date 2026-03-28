@@ -22,21 +22,6 @@ export function buildRetrievalSessionIdentitySeed(input: {
   ].join("|");
 }
 
-export function buildUploadSessionIdentitySeed(input: {
-  fileName: string;
-  fileSize: number;
-  updatedAt: string;
-  uploadFingerprint: string;
-}): string {
-  return [
-    "upload",
-    sanitizeSegment(input.uploadFingerprint),
-    sanitizeSegment(input.fileName),
-    sanitizeSegment(input.updatedAt),
-    String(input.fileSize)
-  ].join("|");
-}
-
 export function resolvePdfSessionIdentity(documentMeta: RetrievedPdfMeta | null): PdfSessionIdentity | null {
   if (!documentMeta) {
     return null;

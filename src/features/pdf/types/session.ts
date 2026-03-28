@@ -4,7 +4,7 @@ export type SaveStatus = "idle" | "saving" | "saved";
 
 export interface PdfSessionIdentity {
   key: string;
-  sourceType: "retrieval" | "upload";
+  sourceType: "retrieval";
   fileName: string;
   id: string;
 }

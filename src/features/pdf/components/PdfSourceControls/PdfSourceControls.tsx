@@ -6,14 +6,10 @@ function PdfSourceControlsComponent({
   retrievalInputValue,
   retrievalStatus,
   canRetryRetrieval,
-  hasPdf,
-  manualFileInputRef,
   onRetrievalInputChange,
   onRetrieveDocument,
   onResetWorkspace,
-  onRetryRetrieval,
-  onManualFilePick,
-  onManualFileChange
+  onRetryRetrieval
 }: PdfSourceControlsProps) {
   return (
     <form
@@ -50,21 +46,9 @@ function PdfSourceControlsComponent({
         </button>
       )}
 
-      <button type="button" className={styles.buttonSecondary} onClick={onManualFilePick}>
-        {hasPdf ? "Replace" : "Upload"}
-      </button>
-
       <button type="button" className={styles.buttonSecondary} onClick={onResetWorkspace}>
         Reset
       </button>
-
-      <input
-        ref={manualFileInputRef}
-        type="file"
-        accept="application/pdf,.pdf"
-        onChange={onManualFileChange}
-        className={styles.hiddenInput}
-      />
     </form>
   );
 }

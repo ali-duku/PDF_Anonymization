@@ -9,7 +9,7 @@ PDF Anonymization is a browser-based tool focused on one workflow:
 
 Current feature set:
 
-- Single compact workspace for PDF retrieval/upload, viewing, and bbox editing.
+- Single compact workspace for PDF retrieval-by-ID, viewing, and bbox editing.
 - Direct click-and-drag bbox creation on empty viewer page space (no toolbar creation button).
 - Bounded bbox move/resize/delete interactions with minimum-size enforcement.
 - Refined outside-corner delete control and centered adaptive bbox label sizing.
@@ -56,7 +56,7 @@ npm run build
 - `src/components/general/WhatsNewModal`: release notes modal.
 - `src/pages/AppPage`: app shell composition.
 - `src/features/pdf/components`: PDF workspace and focused UI sections.
-- `src/features/pdf/hooks`: retrieval/upload/document rendering hooks plus bbox state.
+- `src/features/pdf/hooks`: retrieval/document rendering hooks plus bbox state.
 - `src/features/pdf/constants/bbox.ts`: bbox tokens and Arabic entity defaults.
 - `src/features/pdf/types/bbox.ts`: bbox domain model contracts.
 - `src/features/pdf/services`: retrieval adapters plus modular redaction/export orchestration.

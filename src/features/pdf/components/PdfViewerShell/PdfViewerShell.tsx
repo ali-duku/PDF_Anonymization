@@ -11,7 +11,6 @@ function PdfViewerShellComponent({
   retrievalInputValue,
   retrievalStatus,
   canRetryRetrieval,
-  manualFileInputRef,
   currentPage,
   totalPages,
   zoom,
@@ -31,8 +30,6 @@ function PdfViewerShellComponent({
   onRetrieveDocument,
   onResetWorkspace,
   onRetryRetrieval,
-  onManualFilePick,
-  onManualFileChange,
   onMovePage,
   onPageInput,
   onZoomOut,
@@ -49,7 +46,6 @@ function PdfViewerShellComponent({
         retrievalInputValue={retrievalInputValue}
         retrievalStatus={retrievalStatus}
         canRetryRetrieval={canRetryRetrieval}
-        manualFileInputRef={manualFileInputRef}
         currentPage={currentPage}
         totalPages={totalPages}
         zoom={zoom}
@@ -69,8 +65,6 @@ function PdfViewerShellComponent({
         onRetrieveDocument={onRetrieveDocument}
         onResetWorkspace={onResetWorkspace}
         onRetryRetrieval={onRetryRetrieval}
-        onManualFilePick={onManualFilePick}
-        onManualFileChange={onManualFileChange}
         onMovePage={onMovePage}
         onPageInput={onPageInput}
         onZoomOut={onZoomOut}

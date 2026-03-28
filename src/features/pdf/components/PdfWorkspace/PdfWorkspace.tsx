@@ -2,7 +2,6 @@ import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import type { PdfLoadStatus } from "../../../../types/pdf";
 import { SESSION_SWITCH_WARNING_DESCRIPTION, SESSION_SWITCH_WARNING_TITLE } from "../../constants/session";
 import { useBeforeUnloadProtection } from "../../hooks/useBeforeUnloadProtection";
-import { useManualPdfUpload } from "../../hooks/useManualPdfUpload";
 import { usePdfDocument } from "../../hooks/usePdfDocument";
 import { usePdfRetrieval } from "../../hooks/usePdfRetrieval";
 import type { PdfSessionController } from "../../types/session";
@@ -11,7 +10,7 @@ import { SessionRiskPrompt } from "../SessionRiskPrompt/SessionRiskPrompt";
 import styles from "./PdfWorkspace.module.css";
 import type { PdfWorkspaceProps } from "./PdfWorkspace.types";
 
-type ActiveSource = "none" | "retrieval" | "upload";
+type ActiveSource = "none" | "retrieval";
 
 interface PendingRiskAction {
   confirmLabel: string;
@@ -85,32 +84,12 @@ function PdfWorkspaceComponent({
     }
   });
 
-  const {
-    status: uploadStatus,
-    errorMessage: uploadErrorMessage,
-    document: uploadedDocument,
-    fileInputRef,
-    handleFilePick,
-    handleFileChange,
-    resetManualUpload
-  } = useManualPdfUpload({
-    onDocumentLoaded: () => {
-      setActiveSource("upload");
-    },
-    onDocumentCleared: () => {
-      setActiveSource((previous) => (previous === "upload" ? "none" : previous));
-    }
-  });
-
   const activeDocument = useMemo(() => {
-    if (activeSource === "upload") {
-      return uploadedDocument;
-    }
     if (activeSource === "retrieval") {
       return retrievalState.document;
     }
     return null;
-  }, [activeSource, retrievalState.document, uploadedDocument]);
+  }, [activeSource, retrievalState.document]);
 
   const pdfState = usePdfDocument({ retrievedPdfDocument: activeDocument });
 
@@ -122,23 +101,9 @@ function PdfWorkspaceComponent({
       };
     }
 
-    if (uploadStatus === "error") {
-      return {
-        text: uploadErrorMessage ?? "Upload failed.",
-        tone: "error" as const
-      };
-    }
-
     if (retrievalState.status === "success" && activeSource === "retrieval" && retrievalState.document) {
       return {
         text: `Loaded ID ${retrievalState.document.meta.id}`,
-        tone: "success" as const
-      };
-    }
-
-    if (uploadStatus === "success" && activeSource === "upload" && uploadedDocument) {
-      return {
-        text: `Loaded ${uploadedDocument.meta.fileName}`,
         tone: "success" as const
       };
     }
@@ -147,15 +112,7 @@ function PdfWorkspaceComponent({
       text: "",
       tone: "neutral" as const
     };
-  }, [
-    activeSource,
-    retrievalState.document,
-    retrievalState.error?.message,
-    retrievalState.status,
-    uploadErrorMessage,
-    uploadStatus,
-    uploadedDocument
-  ]);
+  }, [activeSource, retrievalState.document, retrievalState.error?.message, retrievalState.status]);
 
   const loadStatus = useMemo(
     () => buildDocumentLoadStatus(pdfState.loadStatus, pdfState.errorMessage),
@@ -175,16 +132,9 @@ function PdfWorkspaceComponent({
     runWithSessionRiskGuard(() => {
       setRetrievalInputValue("");
       resetRetrieval();
-      resetManualUpload();
       setActiveSource("none");
     }, "Reset");
-  }, [resetManualUpload, resetRetrieval, runWithSessionRiskGuard]);
-
-  const handleManualFilePick = useCallback(() => {
-    runWithSessionRiskGuard(() => {
-      handleFilePick();
-    }, "Replace PDF");
-  }, [handleFilePick, runWithSessionRiskGuard]);
+  }, [resetRetrieval, runWithSessionRiskGuard]);
 
   return (
     <section className={styles.workspace} aria-label="PDF anonymization workspace">
@@ -196,7 +146,6 @@ function PdfWorkspaceComponent({
         retrievalInputValue={retrievalInputValue}
         retrievalStatus={retrievalState.status}
         canRetryRetrieval={Boolean(retrievalState.lastRequestedId) && retrievalState.status !== "loading"}
-        manualFileInputRef={fileInputRef}
         currentPage={pdfState.currentPage}
         totalPages={pdfState.totalPages}
         zoom={pdfState.zoom}
@@ -216,8 +165,6 @@ function PdfWorkspaceComponent({
         onRetrieveDocument={handleRetrieveDocument}
         onResetWorkspace={handleResetWorkspace}
         onRetryRetrieval={retryLastRequest}
-        onManualFilePick={handleManualFilePick}
-        onManualFileChange={handleFileChange}
         onMovePage={pdfState.movePage}
         onPageInput={pdfState.handlePageInput}
         onZoomOut={pdfState.handleZoomOut}

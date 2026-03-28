@@ -51,9 +51,8 @@ export interface RetrievedPdfMeta {
   updatedAt: string;
   requestUrl: string;
   retrievedAt: string;
-  sourceType: "retrieval" | "upload";
+  sourceType: "retrieval";
   sessionIdentitySeed: string;
-  uploadFingerprint?: string;
 }
 
 export interface RetrievedPdfDocument {

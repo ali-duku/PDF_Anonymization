@@ -16,7 +16,7 @@ PDF Anonymization v0.5.0 uses a single-page workspace with a PDF-first flow, int
   - `WhatsNewModal`: release notes dialog.
 - `src/features/pdf`
   - `components/PdfWorkspace`: composes viewer shell, source/status orchestration, unload protection, and source-switch risk prompt.
-  - `components/PdfSourceControls`: compact inline ID retrieval + upload control group.
+  - `components/PdfSourceControls`: compact inline ID retrieval control group.
   - `components/PdfViewerShell`: stage boundary that localizes viewer rerenders.
   - `components/PdfDocumentStage`: single-row viewer toolbar with separated source/page/zoom/undo-redo/paste groups plus page stage rendering.
   - `components/RestoreSessionPrompt`: app-consistent restore prompt for matching persisted sessions.
@@ -27,7 +27,6 @@ PDF Anonymization v0.5.0 uses a single-page workspace with a PDF-first flow, int
   - `components/BboxActionCluster`: compact per-bbox action controls (trash delete, duplicate, copy) with shared icon/button tokens and non-blocking tooltips.
   - `components/BboxLabelEditor`: app-themed inline editor with unified label combobox, compact number input, and focus-safe interaction handling.
   - `hooks/usePdfRetrieval.ts`: retrieval lifecycle state machine.
-  - `hooks/useManualPdfUpload.ts`: local upload lifecycle.
   - `hooks/usePdfDocument.ts`: PDF.js load/render/page/zoom management with base page dimensions.
   - `hooks/usePdfBboxes.ts`: bbox domain state/actions plus autosave, manual save, restore, export-state tracking, and undo/redo integration.
   - `hooks/useBeforeUnloadProtection.ts`: browser `beforeunload` guard when session-loss risk exists.
@@ -41,7 +40,7 @@ PDF Anonymization v0.5.0 uses a single-page workspace with a PDF-first flow, int
   - `services/export/*`: export orchestration, redaction planning, PDFium mutation adapter, and overlay rendering adapter.
   - `services/sessionStorageService.ts`: localStorage persistence with schema validation/pruning.
   - `services/*`: retrieval adapters plus export service entrypoint.
-  - `utils/*`: identifier validation, geometry helpers, clipboard/duplicate helpers, worker setup, upload fingerprinting, and session identity utilities.
+  - `utils/*`: identifier validation, geometry helpers, clipboard/duplicate helpers, worker setup, and session identity utilities.
 - `src/types`
   - Shared contracts for app metadata, retrieval payloads, service boundaries, and PDF load status.
 
@@ -55,8 +54,8 @@ Each component folder follows:
 
 ## Runtime Data Flow
 
-1. `PdfSourceControls` accepts file ID or local upload within the viewer toolbar.
-2. `usePdfRetrieval` and `useManualPdfUpload` provide the active source document.
+1. `PdfSourceControls` accepts file ID retrieval within the viewer toolbar.
+2. `usePdfRetrieval` provides the active source document.
 3. `usePdfDocument` loads and renders the selected PDF using PDF.js and exposes display/base page dimensions.
 4. `usePdfBboxes` owns per-document bbox state in page coordinates and orchestrates undo/redo, autosave/manual save, restore prompts, and export-revision tracking.
 5. `PdfDocumentStage` renders canvas + `BboxOverlayLayer` for create/move/resize/delete/duplicate/copy/paste/edit flows, viewer autosave status, and restore prompt.

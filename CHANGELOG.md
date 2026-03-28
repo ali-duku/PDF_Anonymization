@@ -7,7 +7,7 @@
 - Added deterministic, bounded undo/redo for bbox create/move/resize/delete/duplicate/paste/entity/number mutations.
 - Added restore-session prompting for matching PDF identities after refresh/close, with `Restore` and `Skip` behavior.
 - Added close-protection and source-switch risk prompts when work is dirty or current bbox state is not yet exported.
-- Added stable PDF session identity handling (retrieval metadata + upload fingerprint) while never persisting PDF blobs/bytes.
+- Added stable PDF session identity handling from retrieval metadata while never persisting PDF blobs/bytes.
 - Added modular session persistence/history infrastructure (`constants`, `types`, `services`, `hooks`, prompt components).
 
 ## [0.4.3] - 2026-03-28
@@ -95,7 +95,7 @@
 
 - Repositioned product to **PDF Anonymization** with a fresh baseline release.
 - Removed legacy Setup/JSON/text-editing/bbox-editing systems from the repository.
-- Introduced a single PDF workspace with retrieval-by-ID and local upload flows.
+- Introduced a single PDF workspace with retrieval-by-ID flow.
 - Added focused viewer controls (page navigation, zoom, fit).
 - Added an anonymization panel placeholder with disabled `Add Region` and `Export Anonymized PDF` actions.
 

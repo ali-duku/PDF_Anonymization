@@ -30,7 +30,6 @@ function PdfDocumentStageComponent({
   retrievalInputValue,
   retrievalStatus,
   canRetryRetrieval,
-  manualFileInputRef,
   currentPage,
   totalPages,
   zoom,
@@ -50,8 +49,6 @@ function PdfDocumentStageComponent({
   onRetrieveDocument,
   onResetWorkspace,
   onRetryRetrieval,
-  onManualFilePick,
-  onManualFileChange,
   onMovePage,
   onPageInput,
   onZoomOut,
@@ -169,14 +166,10 @@ function PdfDocumentStageComponent({
             retrievalInputValue={retrievalInputValue}
             retrievalStatus={retrievalStatus}
             canRetryRetrieval={canRetryRetrieval}
-            hasPdf={hasPdf}
-            manualFileInputRef={manualFileInputRef}
             onRetrievalInputChange={onRetrievalInputChange}
             onRetrieveDocument={onRetrieveDocument}
             onResetWorkspace={onResetWorkspace}
             onRetryRetrieval={onRetryRetrieval}
-            onManualFilePick={onManualFilePick}
-            onManualFileChange={onManualFileChange}
           />
 
           <div className={styles.toolbarGroup}>

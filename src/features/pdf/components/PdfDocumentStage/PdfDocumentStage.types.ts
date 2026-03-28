@@ -1,4 +1,4 @@
-import type { ChangeEvent, RefObject } from "react";
+import type { RefObject } from "react";
 import type { PdfLoadStatus } from "../../../../types/pdf";
 import type { RetrievedPdfMeta } from "../../../../types/pdfRetrieval";
 import type { PdfRetrievalStatus } from "../../hooks/usePdfRetrieval";
@@ -13,7 +13,6 @@ export interface PdfDocumentStageProps {
   retrievalInputValue: string;
   retrievalStatus: PdfRetrievalStatus;
   canRetryRetrieval: boolean;
-  manualFileInputRef: RefObject<HTMLInputElement>;
   currentPage: number;
   totalPages: number;
   zoom: number;
@@ -33,8 +32,6 @@ export interface PdfDocumentStageProps {
   onRetrieveDocument: () => void;
   onResetWorkspace: () => void;
   onRetryRetrieval: () => void;
-  onManualFilePick: () => void;
-  onManualFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onMovePage: (direction: -1 | 1) => void;
   onPageInput: (nextPage: number) => void;
   onZoomOut: () => void;

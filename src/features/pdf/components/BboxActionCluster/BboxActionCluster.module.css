@@ -1,0 +1,101 @@
+.cluster {
+  position: absolute;
+  top: 0;
+  right: 0;
+  transform: translate(
+    calc(100% + var(--bbox-action-cluster-offset-x)),
+    calc(-100% - var(--bbox-action-cluster-offset-y))
+  );
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bbox-action-cluster-gap);
+  z-index: var(--bbox-action-cluster-z-index);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--ui-fast-transition);
+}
+
+.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.actionButtonWrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.actionButton {
+  width: var(--bbox-action-button-size);
+  height: var(--bbox-action-button-size);
+  border-radius: 9px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 0;
+  touch-action: manipulation;
+  border: 1px solid var(--action-border-color);
+  color: var(--action-icon-color);
+  background:
+    linear-gradient(170deg, var(--action-bg-top), var(--action-bg-bottom)),
+    rgba(8, 14, 22, 0.65);
+  backdrop-filter: blur(var(--bbox-action-glass-blur));
+  box-shadow:
+    0 5px 12px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  transition:
+    filter var(--ui-fast-transition),
+    transform var(--ui-fast-transition),
+    box-shadow var(--ui-fast-transition),
+    border-color var(--ui-fast-transition);
+}
+
+.actionButton:hover {
+  filter: brightness(1.05);
+  transform: translateY(calc(var(--bbox-action-hover-lift) * -1));
+  border-color: var(--action-border-hover-color);
+  box-shadow:
+    0 7px 14px rgba(0, 0, 0, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24);
+}
+
+.actionButton:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.actionButton:focus-visible {
+  outline: 2px solid rgba(236, 244, 255, 0.92);
+  outline-offset: 2px;
+}
+
+.deleteButton {
+  --action-bg-top: rgba(255, 146, 161, 0.33);
+  --action-bg-bottom: rgba(166, 39, 61, 0.44);
+  --action-border-color: rgba(212, 97, 116, 0.64);
+  --action-border-hover-color: rgba(235, 128, 145, 0.82);
+  --action-icon-color: #ffe8ec;
+}
+
+.duplicateButton {
+  --action-bg-top: rgba(127, 192, 255, 0.34);
+  --action-bg-bottom: rgba(54, 114, 190, 0.42);
+  --action-border-color: rgba(95, 161, 236, 0.62);
+  --action-border-hover-color: rgba(143, 197, 255, 0.82);
+  --action-icon-color: #ecf6ff;
+}
+
+.copyButton {
+  --action-bg-top: rgba(101, 214, 194, 0.32);
+  --action-bg-bottom: rgba(41, 140, 124, 0.42);
+  --action-border-color: rgba(89, 181, 166, 0.62);
+  --action-border-hover-color: rgba(130, 220, 202, 0.8);
+  --action-icon-color: #ecfffb;
+}
+
+.icon {
+  width: var(--bbox-action-icon-size);
+  height: var(--bbox-action-icon-size);
+  display: block;
+}

@@ -107,6 +107,7 @@
 }
 
 .canvasShell {
+  position: relative;
   min-height: 0;
   min-width: 0;
   border: 1px solid var(--line);
@@ -150,8 +151,21 @@
   font-size: 0.84rem;
 }
 
+.footerRow {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .statusLine {
   margin: 0;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.8rem;
   color: var(--muted);
   font-family: "IBM Plex Mono", monospace;

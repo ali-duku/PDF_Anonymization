@@ -17,6 +17,11 @@ export interface PdfBbox extends PdfBboxRect {
   instanceNumber: number | null;
 }
 
+export interface BboxClipboardSnapshot extends PdfBboxRect {
+  entityLabel: string;
+  instanceNumber: number | null;
+}
+
 export interface BboxDisplayRect extends PdfBboxRect {}
 
 export type BboxResizeHandle = "n" | "ne" | "e" | "se" | "s" | "sw" | "w" | "nw";

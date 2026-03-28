@@ -8,6 +8,7 @@ interface UsePdfExportOptions {
   sourcePdfBlob: Blob | null;
   sourceFileName: string | null;
   bboxes: readonly PdfBbox[];
+  onExportSuccess?: () => void;
 }
 
 interface ExportPayloadRef {
@@ -30,7 +31,8 @@ function normalizeExportError(error: unknown): string {
 export function usePdfExport({
   sourcePdfBlob,
   sourceFileName,
-  bboxes
+  bboxes,
+  onExportSuccess
 }: UsePdfExportOptions): PdfExportController {
   const [isExporting, setIsExporting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>();
@@ -73,12 +75,13 @@ export function usePdfExport({
         sourceFileName: payload.sourceFileName
       });
       downloadBlobFile(result.blob, result.fileName);
+      onExportSuccess?.();
     } catch (error) {
       setErrorMessage(normalizeExportError(error));
     } finally {
       setIsExporting(false);
     }
-  }, []);
+  }, [onExportSuccess]);
 
   return useMemo(
     () => ({

@@ -1,14 +1,18 @@
 import {
   memo,
   useCallback,
+  useEffect,
   useMemo,
+  useRef,
+  useState,
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent
 } from "react";
-import { BBOX_LABEL_SEPARATOR } from "../../constants/bbox";
+import { BBOX_ACTION_HOVER_HIDE_DELAY_MS, BBOX_LABEL_SEPARATOR } from "../../constants/bbox";
 import { getAdaptiveBboxLabelSizing } from "../../utils/bboxLabelSizing";
 import { formatBboxDisplayLabel, getBboxDisplayLabelParts } from "../../utils/bboxGeometry";
+import { BboxActionCluster } from "../BboxActionCluster/BboxActionCluster";
 import { BboxLabelEditor } from "../BboxLabelEditor/BboxLabelEditor";
 import styles from "./BboxItem.module.css";
 import type { BboxItemProps } from "./BboxItem.types";
@@ -41,12 +45,17 @@ function BboxItemComponent({
   onStartMove,
   onStartResize,
   onDelete,
+  onDuplicate,
+  onCopy,
   onOpenEditor,
   onCloseEditor,
   onLabelChange,
   onInstanceNumberChange,
   onRegisterCustomLabel
 }: BboxItemProps) {
+  const [isHovered, setIsHovered] = useState(false);
+  const hideActionsTimerRef = useRef<number | null>(null);
+
   const className = useMemo(
     () =>
       [
@@ -58,6 +67,7 @@ function BboxItemComponent({
         .join(" "),
     [isEditing, isSelected]
   );
+  const shouldShowActions = (isSelected || isHovered) && !isEditing;
 
   const labelParts = useMemo(
     () => getBboxDisplayLabelParts(bbox.entityLabel, bbox.instanceNumber),
@@ -106,6 +116,33 @@ function BboxItemComponent({
     [bbox.id, onOpenEditor, onSelect]
   );
 
+  const cancelHideActionsTimer = useCallback(() => {
+    if (hideActionsTimerRef.current === null) {
+      return;
+    }
+    window.clearTimeout(hideActionsTimerRef.current);
+    hideActionsTimerRef.current = null;
+  }, []);
+
+  const showActions = useCallback(() => {
+    cancelHideActionsTimer();
+    setIsHovered(true);
+  }, [cancelHideActionsTimer]);
+
+  const scheduleHideActions = useCallback(() => {
+    cancelHideActionsTimer();
+    hideActionsTimerRef.current = window.setTimeout(() => {
+      setIsHovered(false);
+      hideActionsTimerRef.current = null;
+    }, BBOX_ACTION_HOVER_HIDE_DELAY_MS);
+  }, [cancelHideActionsTimer]);
+
+  useEffect(() => {
+    return () => {
+      cancelHideActionsTimer();
+    };
+  }, [cancelHideActionsTimer]);
+
   return (
     <div
       className={className}
@@ -116,6 +153,8 @@ function BboxItemComponent({
         height: `${displayRect.height}px`
       }}
       onPointerDown={handlePointerDown}
+      onPointerEnter={showActions}
+      onPointerLeave={scheduleHideActions}
       onDoubleClick={handleDoubleClick}
       onClick={(event) => {
         if (isEventFromEditor(event.target)) {
@@ -140,27 +179,19 @@ function BboxItemComponent({
         </span>
       )}
 
-      {isSelected && !isEditing && (
+      {!isEditing && (
         <>
-          <button
-            type="button"
-            className={styles.deleteButton}
-            data-delete
-            aria-label="Delete bbox"
-            onPointerDown={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-            }}
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              onDelete(bbox.id);
-            }}
-          >
-            {"\u00D7"}
-          </button>
+          <BboxActionCluster
+            isVisible={shouldShowActions}
+            onDelete={() => onDelete(bbox.id)}
+            onDuplicate={() => onDuplicate(bbox.id)}
+            onCopy={() => onCopy(bbox.id)}
+            onPointerEnter={showActions}
+            onPointerLeave={scheduleHideActions}
+          />
 
-          {RESIZE_HANDLES.map((handle) => (
+          {isSelected &&
+            RESIZE_HANDLES.map((handle) => (
             <button
               key={handle.key}
               type="button"
@@ -174,7 +205,7 @@ function BboxItemComponent({
                 onStartResize(bbox.id, handle.key, event);
               }}
             />
-          ))}
+            ))}
         </>
       )}
 

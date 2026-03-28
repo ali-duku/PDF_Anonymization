@@ -5,7 +5,7 @@ PDF Anonymization is a browser-based tool focused on one workflow:
 - Input: PDF
 - Output: PDF
 
-## v0.4.0 (2026-03-26)
+## v0.5.0 (2026-03-28)
 
 Current feature set:
 
@@ -18,11 +18,17 @@ Current feature set:
 - One-line zoom-stable bbox labels with right-side Arabic-Indic instance numbers.
 - Arabic default entity list with combobox filtering and session-only custom labels.
 - Optional numeric suffix support for repeated entities displayed with Arabic-Indic numerals.
+- Top-bar `Save` action with compact `idle` / `saving` / `saved` status.
+- Autosave on bbox/session mutations with subtle viewer feedback and last autosave time.
+- Bounded undo/redo history for bbox create/move/resize/delete/duplicate/paste/entity/number mutations.
+- Restore prompt for matching PDF sessions after accidental close/refresh.
+- Browser `beforeunload` close-protection when bbox work is dirty or not yet exported.
 - Export now uses a true PDF-preserving redaction pipeline instead of full-page rasterization.
 - Redacted regions are irreversibly anonymized through secure PDF mutation before final overlay drawing.
 - Selectable and searchable text remains preserved for non-anonymized content without rebuilt hidden text layers.
 - Export label/number ordering, Arabic-Indic numbering, and bbox border styling stay aligned with in-app preview rules.
 - Export processes all pages and downloads one final anonymized PDF file.
+- Persisted session data stores only app/session metadata and bbox state; raw PDF file bytes are never persisted.
 
 ## Local Development
 
@@ -54,7 +60,8 @@ npm run build
 - `src/features/pdf/constants/bbox.ts`: bbox tokens and Arabic entity defaults.
 - `src/features/pdf/types/bbox.ts`: bbox domain model contracts.
 - `src/features/pdf/services`: retrieval adapters plus modular redaction/export orchestration.
-- `src/features/pdf/utils`: retrieval validation plus shared bbox geometry/label helpers.
+- `src/features/pdf/services/sessionStorageService.ts`: local persisted session snapshot storage and pruning.
+- `src/features/pdf/utils`: retrieval validation plus shared bbox geometry/label/session helpers.
 - `src/types`: shared contracts.
 - `docs/ARCHITECTURE.md`: architecture and module boundaries.
 - `docs/MAINTENANCE.md`: maintenance and release workflow.
@@ -63,4 +70,5 @@ npm run build
 ## Notes
 
 - Export is enabled when a PDF is loaded and at least one bbox exists.
+- Save/autosave/restore persists only session state (bbox/history/metadata), never the PDF content itself.
 

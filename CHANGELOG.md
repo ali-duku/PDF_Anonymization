@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.5.0] - 2026-03-28
+
+- Added a top-bar `Save` action with compact `idle` / `saving` / `saved` status feedback.
+- Added bbox-session autosave with persisted timestamps and subtle viewer bottom-right save status.
+- Added deterministic, bounded undo/redo for bbox create/move/resize/delete/duplicate/paste/entity/number mutations.
+- Added restore-session prompting for matching PDF identities after refresh/close, with `Restore` and `Skip` behavior.
+- Added close-protection and source-switch risk prompts when work is dirty or current bbox state is not yet exported.
+- Added stable PDF session identity handling (retrieval metadata + upload fingerprint) while never persisting PDF blobs/bytes.
+- Added modular session persistence/history infrastructure (`constants`, `types`, `services`, `hooks`, prompt components).
+
+## [0.4.3] - 2026-03-28
+
+- Added keyboard shortcut behavior so pressing `Enter` opens the bbox editor for the currently selected bbox when no edit/drag interaction is active.
+- Improved bbox action hover stability with delayed hide logic so icons do not disappear while moving from bbox content to the action cluster.
+- Reordered viewer toolbar groups to source, page, zoom, then `Paste`.
+- Normalized `Paste` group spacing to match other toolbar groups and removed the special min-width sizing override.
+
+## [0.4.2] - 2026-03-28
+
+- Moved the viewer Paste action into a dedicated toolbar group so page/zoom controls remain cleanly separated.
+- Redesigned bbox action controls with larger modern translucent icon buttons and improved contrast over PDF content.
+- Replaced Duplicate/Copy iconography with clearer semantics (shifted clone and clipboard/store for paste) while keeping Delete as a bin action.
+- Added concise custom hover/focus tooltips for Delete, Duplicate, and Copy with non-interfering pointer behavior.
+- Added reusable ActionTooltip primitive and centralized bbox action tooltip/glass/size tokens for consistent maintenance.
+
+## [0.4.1] - 2026-03-28
+
+- Replaced bbox delete `×` with a polished trash/bin action and added a compact per-bbox action cluster.
+- Added new bbox `Duplicate` and `Copy` actions with distinct icons and color treatments.
+- Added viewer-toolbar `Paste` to insert copied bboxes on the current page using exact-geometry paste with safe bounds clamping.
+- Implemented deterministic duplicate offset (`+12px, +12px`) with page-bound clamping for predictable in-bounds placement.
+- Updated bbox action visibility so actions appear on hover and selection while preserving drag/resize stability.
+- Extended inline bbox editor keyboard handling so Enter now commits edits from the Number field (matching Entity behavior).
+- Added Escape-key deselection fallback when a bbox is selected and no draft/edit interaction is active.
+
 ## [0.4.0] - 2026-03-26
 
 - Replaced the previous flattened export architecture with a true PDF-preserving redaction pipeline.
@@ -63,3 +98,5 @@
 - Introduced a single PDF workspace with retrieval-by-ID and local upload flows.
 - Added focused viewer controls (page navigation, zoom, fit).
 - Added an anonymization panel placeholder with disabled `Add Region` and `Export Anonymized PDF` actions.
+
+

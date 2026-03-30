@@ -40,7 +40,7 @@ PDF Anonymization v0.5.0 uses a single-page workspace with a PDF-first flow, int
   - `services/export/*`: export orchestration, redaction planning, PDFium mutation adapter, and overlay rendering adapter.
   - `services/sessionStorageService.ts`: localStorage persistence with schema validation/pruning.
   - `services/*`: retrieval adapters plus export service entrypoint.
-  - `utils/*`: identifier validation, geometry helpers, clipboard/duplicate helpers, worker setup, and session identity utilities.
+  - `utils/*`: identifier validation, geometry helpers, clipboard/duplicate helpers, worker setup, session identity utilities, and shared bbox label layout/fitting helpers for preview/export parity.
 - `src/types`
   - Shared contracts for app metadata, retrieval payloads, service boundaries, and PDF load status.
 

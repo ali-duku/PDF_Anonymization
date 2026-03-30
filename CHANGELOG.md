@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased] - 2026-03-30
+
+- Refactored bbox label fitting around a canonical PDF-space content-box layout shared by preview sizing and export rendering.
+- Fixed exported bbox labels so text stays inside a deterministic all-sides safe inset and no longer relies on clip-path masking.
+- Made export label fitting resolution-independent by computing font size from bbox/page units first and using canvas scale only for raster fidelity.
+
 ## [0.5.0] - 2026-03-28
 
 - Added a top-bar `Save` action with compact `idle` / `saving` / `saved` status feedback.

@@ -32,9 +32,15 @@ export const BBOX_EDITOR_MIN_WIDTH = 230;
 export const BBOX_CREATE_DRAG_THRESHOLD_PX = 6;
 export const BBOX_LABEL_PADDING = 2;
 export const BBOX_LABEL_FIT_SAFETY_INSET = 0.75;
+export const BBOX_LABEL_MIN_CONTENT_EDGE = 0.1;
 export const BBOX_LABEL_MIN_FONT_SIZE = 0.05;
 export const BBOX_LABEL_MAX_FONT_SIZE = 240;
 export const BBOX_LABEL_LINE_HEIGHT = 1.08;
+export const BBOX_LABEL_ASCENT_EM = 0.92;
+export const BBOX_LABEL_DESCENT_EM = 0.42;
+export const BBOX_LABEL_LINEBOX_EM = BBOX_LABEL_ASCENT_EM + BBOX_LABEL_DESCENT_EM;
+export const BBOX_LABEL_WIDTH_SAFETY_MULTIPLIER = 1.12;
+export const BBOX_LABEL_MEASURED_WIDTH_SAFETY_MULTIPLIER = 1.04;
 export const BBOX_LABEL_FONT_WEIGHT = 600;
 export const BBOX_LABEL_FONT_FAMILY =
   '"Space Grotesk", "Segoe UI", "Tahoma", sans-serif';

@@ -12,7 +12,8 @@ export const APP_META: AppMeta = {
         "Added autosave for bbox mutations with subtle bottom-right viewer feedback and last autosave time.",
         "Implemented deterministic bounded undo/redo for create, move, resize, delete, duplicate, paste, and label/number edits.",
         "Added restore prompt for matching PDF sessions after close/refresh plus close-protection warnings for dirty or unexported work.",
-        "Added guarded source-switch prompts to reduce accidental loss when replacing/resetting a PDF session."
+        "Added guarded source-switch prompts to reduce accidental loss when replacing/resetting a PDF session.",
+        "Refined export label fitting with shared PDF-space layout rules so bbox text keeps a safe inset and avoids clipping against borders."
       ]
     },
     {

@@ -48,6 +48,7 @@ UI baseline in v0.5.0:
 - Export generates one anonymized PDF across all pages when a PDF is loaded and bboxes exist, preserving original document structure/selectable text outside anonymized regions.
 - Anonymized regions are irreversibly redacted through secure PDF mutation (no removable overlay-only masking).
 - Preview/export label ordering and border thickness should stay aligned through shared bbox formatting/visual constants.
+- Export label fitting must remain PDF-space deterministic (safe all-sides inset + one-line fit) so label glyphs never clip or touch bbox borders across browser/zoom/device conditions.
 - Viewer/control sizing should use shared CSS tokens from `src/styles.css` instead of repeating hardcoded pixel values.
 
 ## Component Structure Rule

@@ -3,10 +3,8 @@ import {
   BBOX_BORDER_COLOR,
   BBOX_BORDER_WIDTH,
   BBOX_FILL_COLOR,
-  BBOX_LABEL_FIT_SAFETY_INSET,
   BBOX_LABEL_FONT_FAMILY,
   BBOX_LABEL_FONT_WEIGHT,
-  BBOX_LABEL_PADDING,
   BBOX_LABEL_SEPARATOR,
   BBOX_TEXT_COLOR
 } from "../../constants/bbox";
@@ -19,7 +17,7 @@ import {
 } from "../../constants/export";
 import type { PdfBboxRect, PdfPageSize } from "../../types/bbox";
 import { formatBboxDisplayLabel, getBboxDisplayLabelParts } from "../../utils/bboxGeometry";
-import { getAdaptiveBboxLabelSizing } from "../../utils/bboxLabelSizing";
+import { buildBboxLabelLayoutSpec } from "../../utils/bboxLabelLayout";
 import { assertRectWithinPage, toPdfBottomLeftRect } from "./coordinateConversion";
 import { PdfExportError, PdfExportErrorCode } from "./exportErrors";
 import { withExportTimeout } from "./exportTimeouts";
@@ -30,6 +28,16 @@ interface ParsedColor {
   green: number;
   blue: number;
 }
+
+interface LabelCanvasSize {
+  width: number;
+  height: number;
+  scaleX: number;
+  scaleY: number;
+  fontScale: number;
+}
+
+const LABEL_MEASURE_FONT_SIZE = 100;
 
 function parseHexColor(hexColor: string): ParsedColor {
   const normalized = hexColor.replace("#", "").trim();
@@ -114,17 +122,30 @@ async function canvasToPngBytes(canvas: HTMLCanvasElement): Promise<Uint8Array> 
   return new Uint8Array(await blob.arrayBuffer());
 }
 
+function resolveMeasuredLabelWidthPerFontUnit(
+  context: CanvasRenderingContext2D,
+  text: string
+): number | null {
+  context.font = `${BBOX_LABEL_FONT_WEIGHT} ${LABEL_MEASURE_FONT_SIZE}px ${BBOX_LABEL_FONT_FAMILY}`;
+  const measuredWidth = context.measureText(text).width;
+  if (measuredWidth <= 0) {
+    return null;
+  }
+
+  return measuredWidth / LABEL_MEASURE_FONT_SIZE;
+}
+
 function drawCenteredLabelRuns(
   context: CanvasRenderingContext2D,
   entityLabel: string,
   instanceLabel: string | null,
   centerX: number,
-  centerY: number
+  baselineY: number
 ): void {
   if (!instanceLabel) {
     context.direction = "rtl";
     context.textAlign = "center";
-    context.fillText(entityLabel, centerX, centerY);
+    context.fillText(entityLabel, centerX, baselineY);
     return;
   }
 
@@ -137,15 +158,15 @@ function drawCenteredLabelRuns(
 
   context.direction = "rtl";
   context.textAlign = "right";
-  context.fillText(entityLabel, leftEdge + entityWidth, centerY);
+  context.fillText(entityLabel, leftEdge + entityWidth, baselineY);
   context.fillText(
     instanceLabel,
     leftEdge + entityWidth + separatorWidth + instanceWidth,
-    centerY
+    baselineY
   );
 }
 
-function resolveLabelCanvasSize(rect: PdfBboxRect): { width: number; height: number; scale: number } {
+function resolveLabelCanvasSize(rect: PdfBboxRect): LabelCanvasSize {
   const initialScale = EXPORT_LABEL_CANVAS_SCALE;
   let width = Math.max(Math.round(rect.width * initialScale), EXPORT_LABEL_MIN_CANVAS_EDGE);
   let height = Math.max(Math.round(rect.height * initialScale), EXPORT_LABEL_MIN_CANVAS_EDGE);
@@ -157,9 +178,16 @@ function resolveLabelCanvasSize(rect: PdfBboxRect): { width: number; height: num
     height = Math.max(Math.round(height * reductionFactor), EXPORT_LABEL_MIN_CANVAS_EDGE);
   }
 
-  const scale = (width / rect.width + height / rect.height) * 0.5;
+  const scaleX = width / rect.width;
+  const scaleY = height / rect.height;
 
-  return { width, height, scale };
+  return {
+    width,
+    height,
+    scaleX,
+    scaleY,
+    fontScale: Math.min(scaleX, scaleY)
+  };
 }
 
 async function createLabelOverlayImageBytes(
@@ -176,30 +204,34 @@ async function createLabelOverlayImageBytes(
     return null;
   }
 
-  const { width, height, scale } = resolveLabelCanvasSize(rect);
+  const { width, height, scaleX, scaleY, fontScale } = resolveLabelCanvasSize(rect);
   const canvas = createCanvas(width, height);
   const context = canvas.getContext("2d");
   if (!context) {
     throw new PdfExportError(PdfExportErrorCode.OverlayRendering, "Unable to create overlay label context.");
   }
 
-  const sizing = getAdaptiveBboxLabelSizing(labelText, rect);
-  const fontSize = Math.max(1, sizing.fontSize * scale);
-  const labelInset = (BBOX_LABEL_PADDING + BBOX_LABEL_FIT_SAFETY_INSET * 0.5) * scale;
+  const measuredWidthPerFontUnit = resolveMeasuredLabelWidthPerFontUnit(context, labelText);
+  // Fit text in canonical PDF-space units first; canvas scaling only controls raster fidelity.
+  const layoutSpec = buildBboxLabelLayoutSpec({
+    labelText,
+    rect: { x: 0, y: 0, width: rect.width, height: rect.height },
+    measuredWidthPerFontUnit,
+    borderWidth: BBOX_BORDER_WIDTH
+  });
+  const fontSize = Math.max(1, layoutSpec.fontSize * fontScale);
 
   context.clearRect(0, 0, width, height);
   context.fillStyle = BBOX_TEXT_COLOR;
-  context.textBaseline = "middle";
+  context.textBaseline = "alphabetic";
   context.font = `${BBOX_LABEL_FONT_WEIGHT} ${fontSize}px ${BBOX_LABEL_FONT_FAMILY}`;
-  context.beginPath();
-  context.rect(
-    labelInset,
-    labelInset,
-    Math.max(width - labelInset * 2, 0.1),
-    Math.max(height - labelInset * 2, 0.1)
+  drawCenteredLabelRuns(
+    context,
+    parts.entityLabel,
+    parts.instanceLabel,
+    layoutSpec.centerX * scaleX,
+    layoutSpec.baselineY * scaleY
   );
-  context.clip();
-  drawCenteredLabelRuns(context, parts.entityLabel, parts.instanceLabel, width * 0.5, height * 0.5);
 
   return canvasToPngBytes(canvas);
 }

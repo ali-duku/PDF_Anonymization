@@ -2,7 +2,11 @@ import { PDFDocument, rgb, type PDFPage } from "pdf-lib";
 import {
   BBOX_BORDER_COLOR,
   BBOX_BORDER_WIDTH,
+  BBOX_CSS_PIXEL_TO_PDF_UNIT,
+  BBOX_EXPORT_BORDER_VISUAL_WEIGHT_COMPENSATION,
   BBOX_FILL_COLOR,
+  BBOX_LABEL_ASCENT_EM,
+  BBOX_LABEL_DESCENT_EM,
   BBOX_LABEL_FONT_FAMILY,
   BBOX_LABEL_FONT_WEIGHT,
   BBOX_LABEL_SEPARATOR,
@@ -135,6 +139,27 @@ function resolveMeasuredLabelWidthPerFontUnit(
   return measuredWidth / LABEL_MEASURE_FONT_SIZE;
 }
 
+function resolveMeasuredLabelTextMetrics(
+  context: CanvasRenderingContext2D,
+  text: string,
+  fontSize: number
+) {
+  context.font = `${BBOX_LABEL_FONT_WEIGHT} ${fontSize}px ${BBOX_LABEL_FONT_FAMILY}`;
+  const metrics = context.measureText(text);
+
+  return {
+    width: metrics.width,
+    ascent:
+      typeof metrics.actualBoundingBoxAscent === "number" && metrics.actualBoundingBoxAscent > 0
+        ? metrics.actualBoundingBoxAscent
+        : BBOX_LABEL_ASCENT_EM * fontSize,
+    descent:
+      typeof metrics.actualBoundingBoxDescent === "number" && metrics.actualBoundingBoxDescent > 0
+        ? metrics.actualBoundingBoxDescent
+        : BBOX_LABEL_DESCENT_EM * fontSize
+  };
+}
+
 function drawCenteredLabelRuns(
   context: CanvasRenderingContext2D,
   entityLabel: string,
@@ -192,7 +217,8 @@ function resolveLabelCanvasSize(rect: PdfBboxRect): LabelCanvasSize {
 
 async function createLabelOverlayImageBytes(
   bbox: PageRedactionPlan["bboxes"][0],
-  rect: PdfBboxRect
+  rect: PdfBboxRect,
+  borderWidth: number
 ): Promise<Uint8Array | null> {
   const labelText = formatBboxDisplayLabel(bbox.entityLabel, bbox.instanceNumber);
   if (!labelText) {
@@ -217,7 +243,9 @@ async function createLabelOverlayImageBytes(
     labelText,
     rect: { x: 0, y: 0, width: rect.width, height: rect.height },
     measuredWidthPerFontUnit,
-    borderWidth: BBOX_BORDER_WIDTH
+    measureTextMetrics: (fontSize, text) => resolveMeasuredLabelTextMetrics(context, text, fontSize),
+    borderWidth,
+    tokenScale: BBOX_CSS_PIXEL_TO_PDF_UNIT
   });
   const fontSize = Math.max(1, layoutSpec.fontSize * fontScale);
 
@@ -258,7 +286,11 @@ async function drawBboxOverlay(
   const pdfRect = toPdfBottomLeftRect(sourceRect, pageSize);
   const fillColor = toPdfLibColor(BBOX_FILL_COLOR);
   const borderColor = toPdfLibColor(BBOX_BORDER_COLOR);
-  const borderWidth = Math.max(BBOX_BORDER_WIDTH, 0.1);
+  // Keep export stroke weight visually aligned with preview's 1px CSS border token.
+  const borderWidth = Math.max(
+    BBOX_BORDER_WIDTH * BBOX_CSS_PIXEL_TO_PDF_UNIT * BBOX_EXPORT_BORDER_VISUAL_WEIGHT_COMPENSATION,
+    0.1
+  );
   const halfBorder = borderWidth * 0.5;
 
   page.drawRectangle({
@@ -278,7 +310,7 @@ async function drawBboxOverlay(
     borderWidth
   });
 
-  const labelImageBytes = await createLabelOverlayImageBytes(bbox, sourceRect);
+  const labelImageBytes = await createLabelOverlayImageBytes(bbox, sourceRect, borderWidth);
   if (!labelImageBytes) {
     return;
   }

@@ -330,7 +330,9 @@ export async function drawPdfExportOverlays(
 ): Promise<Uint8Array> {
   await waitForDocumentFonts();
 
-  const outputDocument = await PDFDocument.load(sourcePdfBytes);
+  const outputDocument = await PDFDocument.load(sourcePdfBytes, {
+    ignoreEncryption: true
+  });
 
   for (const plan of pagePlan) {
     if (plan.bboxes.length === 0) {

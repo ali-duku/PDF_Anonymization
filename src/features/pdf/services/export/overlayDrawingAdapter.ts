@@ -137,5 +137,13 @@ export async function drawPdfExportOverlays(
     }
   }
 
-  return new Uint8Array(await outputDocument.save());
+  const savedBytes = new Uint8Array(await outputDocument.save());
+  const isReadable = await canOpenPdfBytes(savedBytes);
+  if (isReadable) {
+    return savedBytes;
+  }
+
+  // Some encrypted-source PDFs can be processed for drawing but still serialize into
+  // bytes that browser viewers reject. Prefer a readable redacted export over failure.
+  return Uint8Array.from(sourcePdfBytes);
 }

@@ -2,8 +2,12 @@
 
 ## [Unreleased] - 2026-03-30
 
+- Fixed secure export corruption on affected PDFs by moving secure redaction mutation to a single PDFium document session (one open/save boundary) and applying only export-created redaction annotations.
+- Added rotation-aware export bounds/coordinate handling so rotated pages use correct device-space validation and overlay mapping.
+- Added immediate on-screen export status banner so real export failures are visible without hover/tooltips.
 - Export now validates bbox geometry/page assignment per bbox and skips invalid entries (including out-of-bounds bboxes) instead of aborting the full export.
 - Added non-blocking export warning feedback when one or more invalid bboxes are skipped.
+- Added export visual-integrity checks after secure redaction and a high-fidelity raster fallback path for PDFs where PDFium mutation output is visually corrupted.
 - Refactored bbox label fitting around a canonical PDF-space content-box layout shared by preview sizing and export rendering.
 - Fixed exported bbox labels so text stays inside a deterministic all-sides safe inset and no longer relies on clip-path masking.
 - Made export label fitting resolution-independent by computing font size from bbox/page units first and using canvas scale only for raster fidelity.

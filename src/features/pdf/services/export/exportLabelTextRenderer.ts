@@ -1,4 +1,4 @@
-import { rgb, type PDFPage } from "pdf-lib";
+import { degrees, rgb, type PDFPage } from "pdf-lib";
 import {
   BBOX_LABEL_ASCENT_EM,
   BBOX_LABEL_DESCENT_EM,
@@ -9,15 +9,17 @@ import {
   EXPORT_LABEL_ARABIC_SCRIPT_REGEX,
   EXPORT_LABEL_TEXT_COLOR_HEX
 } from "../../constants/exportTypography";
-import type { PdfBboxRect } from "../../types/bbox";
+import type { PdfBboxRect, PdfPageSize } from "../../types/bbox";
 import { formatBboxDisplayLabel, getBboxDisplayLabelParts } from "../../utils/bboxGeometry";
 import { buildBboxLabelLayoutSpec } from "../../utils/bboxLabelLayout";
+import { toPdfPagePointFromDevicePoint } from "./coordinateConversion";
 import type { ExportLabelFonts } from "./exportLabelFonts";
 
 interface DrawExportLabelTextInput {
   page: PDFPage;
   sourceRect: PdfBboxRect;
-  pdfRect: PdfBboxRect;
+  pageSize: PdfPageSize;
+  pageQuarterTurns: number;
   borderWidth: number;
   bbox: {
     entityLabel: string;
@@ -33,6 +35,11 @@ interface TextRun {
 }
 
 type ScriptKind = "arabic" | "latin";
+interface TextCoordinateContext {
+  pageSize: PdfPageSize;
+  pageQuarterTurns: number;
+  rotationDegrees: number;
+}
 
 function toPdfRgbColor(hexColor: string) {
   const normalized = hexColor.replace("#", "").trim();
@@ -129,28 +136,52 @@ function measureRunWidth(text: string, fontSize: number, fonts: ExportLabelFonts
   return resolveTextRuns(text, fontSize, fonts).reduce((total, run) => total + run.width, 0);
 }
 
-function resolveTextBaselineY(pdfRect: PdfBboxRect, sourceRect: PdfBboxRect, baselineYTopOrigin: number): number {
-  return pdfRect.y + (sourceRect.height - baselineYTopOrigin);
+function resolveTextRotationDegrees(pageSize: PdfPageSize, pageQuarterTurns: number): number {
+  const origin = toPdfPagePointFromDevicePoint(pageSize, pageQuarterTurns, 0, 0);
+  const unitX = toPdfPagePointFromDevicePoint(pageSize, pageQuarterTurns, 1, 0);
+  const deltaX = unitX.x - origin.x;
+  const deltaY = unitX.y - origin.y;
+  return (Math.atan2(deltaY, deltaX) * 180) / Math.PI;
+}
+
+function drawRunFromDevicePoint(
+  page: PDFPage,
+  run: TextRun,
+  xDevice: number,
+  baselineYDevice: number,
+  fontSize: number,
+  textCoordinates: TextCoordinateContext
+): void {
+  const anchor = toPdfPagePointFromDevicePoint(
+    textCoordinates.pageSize,
+    textCoordinates.pageQuarterTurns,
+    xDevice,
+    baselineYDevice
+  );
+
+  page.drawText(run.text, {
+    x: anchor.x,
+    y: anchor.y,
+    size: fontSize,
+    font: run.font,
+    color: textColor,
+    rotate: degrees(textCoordinates.rotationDegrees)
+  });
 }
 
 function drawSingleRunCentered(
   page: PDFPage,
   runs: readonly TextRun[],
-  centerX: number,
-  baselineY: number,
+  centerXDevice: number,
+  baselineYDevice: number,
   fontSize: number,
-  textWidth: number
+  textWidth: number,
+  textCoordinates: TextCoordinateContext
 ): void {
-  let nextX = centerX - textWidth * 0.5;
+  let nextXDevice = centerXDevice - textWidth * 0.5;
   for (const run of runs) {
-    page.drawText(run.text, {
-      x: nextX,
-      y: baselineY,
-      size: fontSize,
-      font: run.font,
-      color: textColor
-    });
-    nextX += run.width;
+    drawRunFromDevicePoint(page, run, nextXDevice, baselineYDevice, fontSize, textCoordinates);
+    nextXDevice += run.width;
   }
 }
 
@@ -159,57 +190,41 @@ function drawDualRunRtlOrdered(
   entityRuns: readonly TextRun[],
   separatorRuns: readonly TextRun[],
   instanceRuns: readonly TextRun[],
-  centerX: number,
-  baselineY: number,
+  centerXDevice: number,
+  baselineYDevice: number,
   fontSize: number,
   entityWidth: number,
   separatorWidth: number,
-  instanceWidth: number
+  instanceWidth: number,
+  textCoordinates: TextCoordinateContext
 ): void {
   // Keep preview/export visual order consistent: entity appears on the left,
   // Arabic-Indic instance number appears on the right.
   const totalWidth = entityWidth + separatorWidth + instanceWidth;
-  const leftEdge = centerX - totalWidth * 0.5;
-  let nextX = leftEdge;
+  const leftEdgeDevice = centerXDevice - totalWidth * 0.5;
+  let nextXDevice = leftEdgeDevice;
 
   for (const run of entityRuns) {
-    page.drawText(run.text, {
-      x: nextX,
-      y: baselineY,
-      size: fontSize,
-      font: run.font,
-      color: textColor
-    });
-    nextX += run.width;
+    drawRunFromDevicePoint(page, run, nextXDevice, baselineYDevice, fontSize, textCoordinates);
+    nextXDevice += run.width;
   }
 
   for (const run of separatorRuns) {
-    page.drawText(run.text, {
-      x: nextX,
-      y: baselineY,
-      size: fontSize,
-      font: run.font,
-      color: textColor
-    });
-    nextX += run.width;
+    drawRunFromDevicePoint(page, run, nextXDevice, baselineYDevice, fontSize, textCoordinates);
+    nextXDevice += run.width;
   }
 
   for (const run of instanceRuns) {
-    page.drawText(run.text, {
-      x: nextX,
-      y: baselineY,
-      size: fontSize,
-      font: run.font,
-      color: textColor
-    });
-    nextX += run.width;
+    drawRunFromDevicePoint(page, run, nextXDevice, baselineYDevice, fontSize, textCoordinates);
+    nextXDevice += run.width;
   }
 }
 
 export function drawExportLabelText({
   page,
   sourceRect,
-  pdfRect,
+  pageSize,
+  pageQuarterTurns,
   borderWidth,
   bbox,
   fonts
@@ -237,12 +252,25 @@ export function drawExportLabelText({
   });
 
   const fontSize = Math.max(1, layoutSpec.fontSize);
-  const centerX = pdfRect.x + layoutSpec.centerX;
-  const baselineY = resolveTextBaselineY(pdfRect, sourceRect, layoutSpec.baselineY);
+  const textCoordinates: TextCoordinateContext = {
+    pageSize,
+    pageQuarterTurns,
+    rotationDegrees: resolveTextRotationDegrees(pageSize, pageQuarterTurns)
+  };
+  const centerXDevice = sourceRect.x + layoutSpec.centerX;
+  const baselineYDevice = sourceRect.y + layoutSpec.baselineY;
 
   if (!parts.instanceLabel) {
     const runs = resolveTextRuns(parts.entityLabel, fontSize, fonts);
-    drawSingleRunCentered(page, runs, centerX, baselineY, fontSize, measureRunWidth(parts.entityLabel, fontSize, fonts));
+    drawSingleRunCentered(
+      page,
+      runs,
+      centerXDevice,
+      baselineYDevice,
+      fontSize,
+      measureRunWidth(parts.entityLabel, fontSize, fonts),
+      textCoordinates
+    );
     return;
   }
 
@@ -258,11 +286,12 @@ export function drawExportLabelText({
     entityRuns,
     separatorRuns,
     instanceRuns,
-    centerX,
-    baselineY,
+    centerXDevice,
+    baselineYDevice,
     fontSize,
     entityWidth,
     separatorWidth,
-    instanceWidth
+    instanceWidth,
+    textCoordinates
   );
 }

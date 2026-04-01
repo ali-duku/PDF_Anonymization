@@ -5,6 +5,8 @@ import { normalizePdfExportError, PdfExportError, PdfExportErrorCode } from "./e
 import { buildPageRedactionPlan } from "./redactionPlanBuilder";
 import { applySecurePdfRedactions } from "./redactionMutationAdapter";
 import { drawPdfExportOverlays } from "./overlayDrawingAdapter";
+import { buildRasterFallbackBasePdf } from "./rasterFallbackExportAdapter";
+import { verifyRedactionVisualIntegrity } from "./redactionIntegrityGuard";
 import { assertBrowserExportSupport, assertValidExportInput } from "./exportValidation";
 
 export async function exportRedactedPdfWithBboxes(
@@ -19,11 +21,25 @@ export async function exportRedactedPdfWithBboxes(
   try {
     const sourceBytes = new Uint8Array(await input.sourcePdfBlob.arrayBuffer());
     const redactionResult = await applySecurePdfRedactions(sourceBytes, pagePlan);
+    let baseExportBytes = redactionResult.redactedBytes;
+
+    if (redactionResult.pagePlan.length > 0) {
+      const integrityResult = await verifyRedactionVisualIntegrity({
+        sourceBytes,
+        redactedBytes: redactionResult.redactedBytes,
+        pagePlan: redactionResult.pagePlan
+      });
+
+      if (!integrityResult.isSafe) {
+        baseExportBytes = await buildRasterFallbackBasePdf(sourceBytes, redactionResult.pagePlan);
+      }
+    }
+
     const overlayResult =
       redactionResult.pagePlan.length > 0
-        ? await drawPdfExportOverlays(redactionResult.redactedBytes, redactionResult.pagePlan)
+        ? await drawPdfExportOverlays(baseExportBytes, redactionResult.pagePlan)
         : {
-            outputBytes: redactionResult.redactedBytes,
+            outputBytes: baseExportBytes,
             skippedBboxes: []
           };
     const finalizedBytes = Uint8Array.from(overlayResult.outputBytes);

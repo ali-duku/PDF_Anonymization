@@ -16,6 +16,10 @@ export const APP_META: AppMeta = {
         "Refined export label fitting with shared PDF-space layout rules so bbox text keeps a safe inset and avoids clipping against borders.",
         "Improved export parity so bbox border weight and label text sizing more closely match the in-app preview while preserving no-clipping safety.",
         "Updated export resilience so invalid/out-of-bounds bboxes are skipped per-item instead of aborting the whole PDF export.",
+        "Fixed secure export corruption on affected PDFs by applying only export-created redaction annotations instead of applying all page redactions.",
+        "Stabilized secure export mutation by processing all redactions in a single PDFium document session and saving once per export.",
+        "Added rotation-aware export bounds and coordinate mapping so redaction and overlay placement stay valid on rotated pages.",
+        "Export failures now surface immediately in an on-screen status banner while successful exports with skipped invalid bboxes remain non-blocking warnings.",
         "Added glyph-metric-aware export label fitting and baseline centering so exported text uses available safe space better without clipping.",
         "Upgraded exported bbox labels to embedded vector text for sharper print/PDF fidelity instead of rasterized label glyph images.",
         "Added export-time Arabic/Latin font embedding with script-aware run rendering so Arabic labels, Arabic-Indic numerals, and mixed-script text remain high-quality and readable."

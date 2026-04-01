@@ -1,6 +1,7 @@
 import { Suspense, lazy, useCallback, useMemo, useState } from "react";
 import { APP_META } from "../../appMeta";
 import { AppHeader } from "../../components/general/AppHeader/AppHeader";
+import { ExportStatusBanner } from "../../components/general/ExportStatusBanner/ExportStatusBanner";
 import { pdfRetrievalService } from "../../features/pdf/services/pdfRetrievalService";
 import type { PdfExportController } from "../../features/pdf/types/export";
 import type { PdfSessionController } from "../../features/pdf/types/session";
@@ -94,7 +95,10 @@ export function AppPage({ services }: AppPageProps) {
         canExportPdf={exportController.canExport}
         isExportingPdf={exportController.isExporting}
         exportStatusMessage={exportController.statusMessage}
-        exportStatusTone={exportController.statusTone}
+      />
+      <ExportStatusBanner
+        message={exportController.statusMessage}
+        tone={exportController.statusTone}
       />
 
       <main className={styles.mainContent}>

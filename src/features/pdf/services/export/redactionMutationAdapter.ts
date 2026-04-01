@@ -14,19 +14,19 @@ import {
 } from "../../constants/export";
 import type { PdfPageSize } from "../../types/bbox";
 import type { PdfExportSkippedBbox } from "../../types/export";
-import { assertRectWithinPage, toEngineRect } from "./coordinateConversion";
+import {
+  assertRectWithinPage,
+  toEngineRect
+} from "./coordinateConversion";
 import { PdfExportError, PdfExportErrorCode } from "./exportErrors";
 import { markAllBboxesSkipped, splitBboxesByPageBounds } from "./exportBboxValidation";
 import { withExportTimeout } from "./exportTimeouts";
 import { getPdfiumExportEngine } from "./pdfiumEngineAdapter";
 import type { PageRedactionPlan } from "./redactionPlanBuilder";
 
-type PageRedactionMode = "batch" | "localized";
-
-interface PageMutationResult {
-  redactedBytes: Uint8Array<ArrayBufferLike>;
-  appliedPlan: PageRedactionPlan | null;
-  skippedBboxes: readonly PdfExportSkippedBbox[];
+interface ValidatedPagePlan {
+  pageNumber: number;
+  bboxes: PageRedactionPlan["bboxes"];
 }
 
 export interface SecureRedactionResult {
@@ -37,9 +37,9 @@ export interface SecureRedactionResult {
 
 let pdfiumDocumentSequence = 0;
 
-function createPdfiumDocumentId(pageNumber: number, mode: PageRedactionMode): string {
+function createPdfiumDocumentId(): string {
   pdfiumDocumentSequence += 1;
-  return `${EXPORT_PDFIUM_DOCUMENT_ID_PREFIX}-${mode}-p${pageNumber}-${pdfiumDocumentSequence}`;
+  return `${EXPORT_PDFIUM_DOCUMENT_ID_PREFIX}-${pdfiumDocumentSequence}`;
 }
 
 function toArrayBuffer(bytes: Uint8Array<ArrayBufferLike>): ArrayBuffer {
@@ -50,7 +50,10 @@ function getPage(document: PdfDocumentObject, pageNumber: number): PdfPageObject
   return document.pages[pageNumber - 1] ?? null;
 }
 
-function toPdfPageSize(page: PdfPageObject): PdfPageSize {
+function toDevicePageSize(page: PdfPageObject): PdfPageSize {
+  // EmbedPDF redaction APIs already expose page.size in the coordinate space
+  // expected by createPageAnnotation/applyRedaction for the opened document mode.
+  // Re-applying rotation swaps here can desync validation from actual redaction coords.
   return {
     width: page.size.width,
     height: page.size.height
@@ -77,7 +80,7 @@ function createRedactionAnnotation(
   pageNumber: number,
   bbox: PageRedactionPlan["bboxes"][0]
 ): PdfRedactAnnoObject {
-  const pageSize = toPdfPageSize(page);
+  const devicePageSize = toDevicePageSize(page);
   const bboxRect = {
     x: bbox.x,
     y: bbox.y,
@@ -85,13 +88,12 @@ function createRedactionAnnotation(
     height: bbox.height
   };
 
-  assertRectWithinPage(bboxRect, pageSize, {
+  assertRectWithinPage(bboxRect, devicePageSize, {
     pageNumber,
     bboxId: bbox.id
   });
 
   const redactionRect = toEngineRect(bboxRect);
-
   const randomSuffix =
     typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
       ? crypto.randomUUID()
@@ -112,15 +114,13 @@ function createRedactionAnnotation(
 
 async function ensureDocumentEncryptionRemoved(
   engine: PdfEngine<Blob>,
-  document: PdfDocumentObject,
-  pageNumber: number,
-  mode: PageRedactionMode
+  document: PdfDocumentObject
 ): Promise<void> {
-  const metadata = { pageNumber, mode };
+  const metadata = { documentId: document.id };
   const isEncrypted = await waitForEngineOperation(
     engine.isEncrypted(document).toPromise(),
     PdfExportErrorCode.Save,
-    `Timed out while checking encryption state for page ${pageNumber}.`,
+    "Timed out while checking encryption state for export.",
     metadata
   );
 
@@ -131,16 +131,14 @@ async function ensureDocumentEncryptionRemoved(
   const removed = await waitForEngineOperation(
     engine.removeEncryption(document).toPromise(),
     PdfExportErrorCode.Save,
-    `Timed out while removing encryption before saving page ${pageNumber}.`,
+    "Timed out while removing encryption before export save.",
     metadata
   );
 
   if (!removed) {
-    throw new PdfExportError(
-      PdfExportErrorCode.Save,
-      `Failed to remove encryption before saving page ${pageNumber}.`,
-      { metadata }
-    );
+    throw new PdfExportError(PdfExportErrorCode.Save, "Failed to remove encryption before export save.", {
+      metadata
+    });
   }
 }
 
@@ -162,99 +160,119 @@ async function closeDocumentQuietly(
   });
 }
 
-async function applyBatchPageRedactions(
+function collectValidatedPagePlans(
+  document: PdfDocumentObject,
+  pagePlan: readonly PageRedactionPlan[]
+): {
+  validatedPlans: readonly ValidatedPagePlan[];
+  skippedBboxes: readonly PdfExportSkippedBbox[];
+} {
+  const validatedPlans: ValidatedPagePlan[] = [];
+  const skippedBboxes: PdfExportSkippedBbox[] = [];
+
+  for (const plan of pagePlan) {
+    if (plan.bboxes.length === 0) {
+      continue;
+    }
+
+    const page = getPage(document, plan.pageNumber);
+    if (!page) {
+      skippedBboxes.push(...markAllBboxesSkipped(plan.bboxes, "invalid_page_reference"));
+      continue;
+    }
+
+    const { validBboxes, skippedBboxes: pageSkippedBboxes } = splitBboxesByPageBounds(
+      plan.bboxes,
+      toDevicePageSize(page)
+    );
+    skippedBboxes.push(...pageSkippedBboxes);
+
+    if (validBboxes.length === 0) {
+      continue;
+    }
+
+    validatedPlans.push({
+      pageNumber: plan.pageNumber,
+      bboxes: validBboxes
+    });
+  }
+
+  return {
+    validatedPlans,
+    skippedBboxes
+  };
+}
+
+async function applySingleBboxRedaction(
   engine: PdfEngine<Blob>,
   document: PdfDocumentObject,
-  page: PdfPageObject,
-  pagePlan: PageRedactionPlan
+  pageNumber: number,
+  bbox: PageRedactionPlan["bboxes"][0]
 ): Promise<void> {
-  for (const bbox of pagePlan.bboxes) {
-    const annotation = createRedactionAnnotation(page, pagePlan.pageNumber, bbox);
-    await waitForEngineOperation(
-      engine.createPageAnnotation(document, page, annotation).toPromise(),
-      PdfExportErrorCode.RedactionApply,
-      `Timed out while preparing a secure redaction annotation on page ${pagePlan.pageNumber}.`,
-      { pageNumber: pagePlan.pageNumber, bboxId: bbox.id, mode: "batch" }
+  const page = getPage(document, pageNumber);
+  if (!page) {
+    throw new PdfExportError(
+      PdfExportErrorCode.CoordinateMapping,
+      `A bbox references a page that no longer exists during export redaction.`,
+      {
+        metadata: { pageNumber, bboxId: bbox.id, pageCount: document.pageCount }
+      }
     );
   }
 
-  const applied = await waitForEngineOperation(
-    engine.applyAllRedactions(document, page).toPromise(),
+  const annotation = createRedactionAnnotation(page, pageNumber, bbox);
+  const annotationId = await waitForEngineOperation(
+    engine.createPageAnnotation(document, page, annotation).toPromise(),
     PdfExportErrorCode.RedactionApply,
-    `Timed out while applying secure redactions on page ${pagePlan.pageNumber}.`,
-    { pageNumber: pagePlan.pageNumber, mode: "batch" }
+    `Timed out while creating secure redaction annotation for bbox ${bbox.id} on page ${pageNumber}.`,
+    { pageNumber, bboxId: bbox.id }
   );
+
+  // Apply the exact annotation we created; avoid page-wide redaction application.
+  const applied = await waitForEngineOperation(
+    engine.applyRedaction(document, page, annotation).toPromise(),
+    PdfExportErrorCode.RedactionApply,
+    `Timed out while applying secure redaction for bbox ${bbox.id} on page ${pageNumber}.`,
+    { pageNumber, bboxId: bbox.id, annotationId }
+  );
+
   if (!applied) {
     throw new PdfExportError(
       PdfExportErrorCode.RedactionApply,
-      `Secure redaction was not applied for page ${pagePlan.pageNumber}.`,
-      { metadata: { pageNumber: pagePlan.pageNumber, mode: "batch" } }
-    );
-  }
-}
-
-async function applyLocalizedPageRedactions(
-  engine: PdfEngine<Blob>,
-  document: PdfDocumentObject,
-  page: PdfPageObject,
-  pagePlan: PageRedactionPlan
-): Promise<void> {
-  for (const bbox of pagePlan.bboxes) {
-    const annotation = createRedactionAnnotation(page, pagePlan.pageNumber, bbox);
-    await waitForEngineOperation(
-      engine.createPageAnnotation(document, page, annotation).toPromise(),
-      PdfExportErrorCode.RedactionApply,
-      `Timed out while preparing localized secure redaction for bbox ${bbox.id} on page ${pagePlan.pageNumber}.`,
-      { pageNumber: pagePlan.pageNumber, bboxId: bbox.id, mode: "localized" }
-    );
-
-    const applied = await waitForEngineOperation(
-      engine.applyAllRedactions(document, page).toPromise(),
-      PdfExportErrorCode.RedactionApply,
-      `Timed out while applying localized secure redaction for bbox ${bbox.id} on page ${pagePlan.pageNumber}.`,
-      { pageNumber: pagePlan.pageNumber, bboxId: bbox.id, mode: "localized" }
-    );
-
-    if (!applied) {
-      throw new PdfExportError(
-        PdfExportErrorCode.RedactionApply,
-        `Secure localized redaction failed for bbox ${bbox.id} on page ${pagePlan.pageNumber}.`,
-        {
-          metadata: {
-            bboxId: bbox.id,
-            pageNumber: pagePlan.pageNumber,
-            mode: "localized"
-          }
+      `Secure redaction failed for bbox ${bbox.id} on page ${pageNumber}.`,
+      {
+        metadata: {
+          pageNumber,
+          bboxId: bbox.id,
+          annotationId
         }
-      );
-    }
+      }
+    );
   }
 }
 
-async function mutateSinglePage(
-  sourceBytes: Uint8Array<ArrayBufferLike>,
-  pagePlan: PageRedactionPlan,
-  mode: PageRedactionMode
-): Promise<PageMutationResult> {
+async function openRedactionDocument(
+  sourceBytes: Uint8Array<ArrayBufferLike>
+): Promise<{ engine: PdfEngine<Blob>; document: PdfDocumentObject }> {
   const engine = await getPdfiumExportEngine();
   const openFile: PdfFile = {
-    id: createPdfiumDocumentId(pagePlan.pageNumber, mode),
+    id: createPdfiumDocumentId(),
     content: toArrayBuffer(sourceBytes)
   };
 
-  let document: PdfDocumentObject | null = null;
-
   try {
-    document = await waitForEngineOperation(
+    const document = await waitForEngineOperation(
       engine
         .openDocumentBuffer(openFile, {
           normalizeRotation: false
         })
         .toPromise(),
       PdfExportErrorCode.EngineInitialization,
-      `Timed out while opening page ${pagePlan.pageNumber} in the redaction engine.`,
-      { pageNumber: pagePlan.pageNumber, mode }
+      "Timed out while opening the PDF in the secure redaction engine.",
+      { documentId: openFile.id }
     );
+
+    return { engine, document };
   } catch (error) {
     if (error instanceof PdfExportError) {
       throw error;
@@ -263,77 +281,8 @@ async function mutateSinglePage(
     throw new PdfExportError(
       PdfExportErrorCode.EngineInitialization,
       "Failed to open the PDF in the secure redaction engine.",
-      { cause: error, metadata: { pageNumber: pagePlan.pageNumber } }
+      { cause: error, metadata: { documentId: openFile.id } }
     );
-  }
-
-  try {
-    const page = getPage(document, pagePlan.pageNumber);
-    if (!page) {
-      return {
-        redactedBytes: sourceBytes,
-        appliedPlan: null,
-        skippedBboxes: markAllBboxesSkipped(pagePlan.bboxes, "invalid_page_reference")
-      };
-    }
-
-    const { validBboxes, skippedBboxes } = splitBboxesByPageBounds(
-      pagePlan.bboxes,
-      toPdfPageSize(page)
-    );
-    if (validBboxes.length === 0) {
-      return {
-        redactedBytes: sourceBytes,
-        appliedPlan: null,
-        skippedBboxes
-      };
-    }
-
-    const validPlan: PageRedactionPlan = {
-      pageNumber: pagePlan.pageNumber,
-      bboxes: validBboxes
-    };
-
-    try {
-      if (mode === "batch") {
-        await applyBatchPageRedactions(engine, document, page, validPlan);
-      } else {
-        await applyLocalizedPageRedactions(engine, document, page, validPlan);
-      }
-    } catch (error) {
-      throw new PdfExportError(
-        PdfExportErrorCode.RedactionApply,
-        `Secure redaction failed on page ${pagePlan.pageNumber}.`,
-        { cause: error, metadata: { pageNumber: pagePlan.pageNumber, mode } }
-      );
-    }
-
-    try {
-      await ensureDocumentEncryptionRemoved(engine, document, pagePlan.pageNumber, mode);
-
-      const savedBuffer = await waitForEngineOperation(
-        engine.saveAsCopy(document).toPromise(),
-        PdfExportErrorCode.Save,
-        `Timed out while saving secure redactions for page ${pagePlan.pageNumber}.`,
-        { pageNumber: pagePlan.pageNumber, mode }
-      );
-      return {
-        redactedBytes: Uint8Array.from(new Uint8Array(savedBuffer)),
-        appliedPlan: validPlan,
-        skippedBboxes
-      };
-    } catch (error) {
-      if (error instanceof PdfExportError) {
-        throw error;
-      }
-
-      throw new PdfExportError(PdfExportErrorCode.Save, "Failed to persist the redacted PDF.", {
-        cause: error,
-        metadata: { pageNumber: pagePlan.pageNumber, mode }
-      });
-    }
-  } finally {
-    await closeDocumentQuietly(engine, document);
   }
 }
 
@@ -341,45 +290,54 @@ export async function applySecurePdfRedactions(
   sourceBytes: Uint8Array<ArrayBufferLike>,
   pagePlan: readonly PageRedactionPlan[]
 ): Promise<SecureRedactionResult> {
-  let workingBytes: Uint8Array<ArrayBufferLike> = Uint8Array.from(sourceBytes);
-  const resolvedPagePlan: PageRedactionPlan[] = [];
-  const skippedBboxes: PdfExportSkippedBbox[] = [];
+  const hasAnyBboxes = pagePlan.some((plan) => plan.bboxes.length > 0);
+  if (!hasAnyBboxes) {
+    return {
+      redactedBytes: Uint8Array.from(sourceBytes),
+      pagePlan: [],
+      skippedBboxes: []
+    };
+  }
 
-  for (const currentPlan of pagePlan) {
-    if (currentPlan.bboxes.length === 0) {
-      continue;
-    }
+  const { engine, document } = await openRedactionDocument(sourceBytes);
+  let redactedBytes = Uint8Array.from(sourceBytes);
 
-    let pageResult: PageMutationResult;
+  try {
+    const { validatedPlans, skippedBboxes } = collectValidatedPagePlans(document, pagePlan);
 
-    try {
-      pageResult = await mutateSinglePage(workingBytes, currentPlan, "batch");
-    } catch (batchError) {
-      try {
-        pageResult = await mutateSinglePage(workingBytes, currentPlan, "localized");
-      } catch (fallbackError) {
-        throw new PdfExportError(
-          PdfExportErrorCode.RedactionApply,
-          `Secure redaction failed on page ${currentPlan.pageNumber} after localized fallback.`,
-          {
-            cause: fallbackError,
-            metadata: { pageNumber: currentPlan.pageNumber, batchError }
-          }
-        );
+    for (const plan of validatedPlans) {
+      for (const bbox of plan.bboxes) {
+        await applySingleBboxRedaction(engine, document, plan.pageNumber, bbox);
       }
     }
 
-    workingBytes = pageResult.redactedBytes;
-    skippedBboxes.push(...pageResult.skippedBboxes);
+    await ensureDocumentEncryptionRemoved(engine, document);
 
-    if (pageResult.appliedPlan && pageResult.appliedPlan.bboxes.length > 0) {
-      resolvedPagePlan.push(pageResult.appliedPlan);
+    const savedBuffer = await waitForEngineOperation(
+      engine.saveAsCopy(document).toPromise(),
+      PdfExportErrorCode.Save,
+      "Timed out while saving secure redactions.",
+      { documentId: document.id }
+    );
+    redactedBytes = Uint8Array.from(new Uint8Array(savedBuffer));
+
+    return {
+      redactedBytes,
+      pagePlan: validatedPlans.map((plan) => ({
+        pageNumber: plan.pageNumber,
+        bboxes: plan.bboxes
+      })),
+      skippedBboxes
+    };
+  } catch (error) {
+    if (error instanceof PdfExportError) {
+      throw error;
     }
-  }
 
-  return {
-    redactedBytes: workingBytes,
-    pagePlan: resolvedPagePlan,
-    skippedBboxes
-  };
+    throw new PdfExportError(PdfExportErrorCode.RedactionApply, "Secure redaction failed during export.", {
+      cause: error
+    });
+  } finally {
+    await closeDocumentQuietly(engine, document);
+  }
 }

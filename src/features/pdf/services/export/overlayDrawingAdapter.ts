@@ -8,7 +8,11 @@ import {
 } from "../../constants/bbox";
 import type { PdfPageSize } from "../../types/bbox";
 import type { PdfExportSkippedBbox } from "../../types/export";
-import { toPdfBottomLeftRect } from "./coordinateConversion";
+import {
+  getDevicePageSize,
+  toPageQuarterTurns,
+  toPdfPageRectFromDeviceRect
+} from "./coordinateConversion";
 import { PdfExportError, PdfExportErrorCode } from "./exportErrors";
 import { markAllBboxesSkipped, splitBboxesByPageBounds } from "./exportBboxValidation";
 import {
@@ -67,6 +71,7 @@ async function canOpenPdfBytes(pdfBytes: Uint8Array): Promise<boolean> {
 async function drawBboxOverlay(
   page: PDFPage,
   pageSize: PdfPageSize,
+  pageQuarterTurns: number,
   bbox: PageRedactionPlan["bboxes"][0],
   fonts: ExportLabelFonts,
 ): Promise<void> {
@@ -77,7 +82,7 @@ async function drawBboxOverlay(
     height: bbox.height,
   };
 
-  const pdfRect = toPdfBottomLeftRect(sourceRect, pageSize);
+  const pdfRect = toPdfPageRectFromDeviceRect(sourceRect, pageSize, pageQuarterTurns);
   const fillColor = toPdfLibColor(BBOX_FILL_COLOR);
   const borderColor = toPdfLibColor(BBOX_BORDER_COLOR);
   // Keep export stroke weight visually aligned with preview's 1px CSS border token.
@@ -109,7 +114,8 @@ async function drawBboxOverlay(
   drawExportLabelText({
     page,
     sourceRect,
-    pdfRect,
+    pageSize,
+    pageQuarterTurns,
     borderWidth,
     bbox: {
       entityLabel: bbox.entityLabel,
@@ -142,11 +148,16 @@ export async function drawPdfExportOverlays(
 
     const page = outputDocument.getPage(pageIndex);
     const pageSize: PdfPageSize = page.getSize();
-    const { validBboxes, skippedBboxes: pageSkippedBboxes } = splitBboxesByPageBounds(plan.bboxes, pageSize);
+    const pageQuarterTurns = toPageQuarterTurns(page.getRotation().angle);
+    const devicePageSize = getDevicePageSize(pageSize, pageQuarterTurns);
+    const { validBboxes, skippedBboxes: pageSkippedBboxes } = splitBboxesByPageBounds(
+      plan.bboxes,
+      devicePageSize
+    );
     skippedBboxes.push(...pageSkippedBboxes);
 
     for (const bbox of validBboxes) {
-      await drawBboxOverlay(page, pageSize, bbox, fonts);
+      await drawBboxOverlay(page, pageSize, pageQuarterTurns, bbox, fonts);
     }
   }
 

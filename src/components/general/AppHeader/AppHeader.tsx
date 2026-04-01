@@ -11,7 +11,8 @@ function AppHeaderComponent({
   onExportPdf,
   canExportPdf,
   isExportingPdf,
-  exportStatusMessage
+  exportStatusMessage,
+  exportStatusTone
 }: AppHeaderProps) {
   const saveButtonTitle = !canSaveSession
     ? "Load a PDF and make bbox changes to enable Save."
@@ -60,6 +61,17 @@ function AppHeaderComponent({
         >
           {isExportingPdf ? "Exporting..." : "Export PDF"}
         </button>
+        {exportStatusMessage && (
+          <p
+            className={`${styles.exportStatus} ${
+              exportStatusTone === "error" ? styles.exportStatusError : styles.exportStatusWarning
+            }`}
+            role="status"
+            aria-live="polite"
+          >
+            {exportStatusMessage}
+          </p>
+        )}
         <button type="button" className={styles.actionButton} onClick={onOpenWhatsNew}>
           What&apos;s New
         </button>

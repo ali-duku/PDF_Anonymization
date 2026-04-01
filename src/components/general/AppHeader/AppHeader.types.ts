@@ -1,4 +1,5 @@
 import type { AppMeta } from "../../../types/appMeta";
+import type { PdfExportStatusTone } from "../../../features/pdf/types/export";
 import type { SaveStatus } from "../../../features/pdf/types/session";
 
 export interface AppHeaderProps {
@@ -11,4 +12,5 @@ export interface AppHeaderProps {
   canExportPdf: boolean;
   isExportingPdf: boolean;
   exportStatusMessage?: string;
+  exportStatusTone?: PdfExportStatusTone;
 }

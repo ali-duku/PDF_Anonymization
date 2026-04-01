@@ -13,13 +13,27 @@ import {
   EXPORT_PDFIUM_DOCUMENT_ID_PREFIX
 } from "../../constants/export";
 import type { PdfPageSize } from "../../types/bbox";
-import { normalizePdfExportError, PdfExportError, PdfExportErrorCode } from "./exportErrors";
-import { withExportTimeout } from "./exportTimeouts";
-import type { PageRedactionPlan } from "./redactionPlanBuilder";
+import type { PdfExportSkippedBbox } from "../../types/export";
 import { assertRectWithinPage, toEngineRect } from "./coordinateConversion";
+import { PdfExportError, PdfExportErrorCode } from "./exportErrors";
+import { markAllBboxesSkipped, splitBboxesByPageBounds } from "./exportBboxValidation";
+import { withExportTimeout } from "./exportTimeouts";
 import { getPdfiumExportEngine } from "./pdfiumEngineAdapter";
+import type { PageRedactionPlan } from "./redactionPlanBuilder";
 
 type PageRedactionMode = "batch" | "localized";
+
+interface PageMutationResult {
+  redactedBytes: Uint8Array<ArrayBufferLike>;
+  appliedPlan: PageRedactionPlan | null;
+  skippedBboxes: readonly PdfExportSkippedBbox[];
+}
+
+export interface SecureRedactionResult {
+  redactedBytes: Uint8Array<ArrayBufferLike>;
+  pagePlan: readonly PageRedactionPlan[];
+  skippedBboxes: readonly PdfExportSkippedBbox[];
+}
 
 let pdfiumDocumentSequence = 0;
 
@@ -32,15 +46,8 @@ function toArrayBuffer(bytes: Uint8Array<ArrayBufferLike>): ArrayBuffer {
   return Uint8Array.from(bytes).buffer;
 }
 
-function getPageOrThrow(document: PdfDocumentObject, pageNumber: number): PdfPageObject {
-  const page = document.pages[pageNumber - 1];
-  if (!page) {
-    throw new PdfExportError(PdfExportErrorCode.CoordinateMapping, "A bbox references a page that does not exist.", {
-      metadata: { pageNumber, pageCount: document.pageCount }
-    });
-  }
-
-  return page;
+function getPage(document: PdfDocumentObject, pageNumber: number): PdfPageObject | null {
+  return document.pages[pageNumber - 1] ?? null;
 }
 
 function toPdfPageSize(page: PdfPageObject): PdfPageSize {
@@ -65,7 +72,11 @@ async function waitForEngineOperation<T>(
   );
 }
 
-function createRedactionAnnotation(page: PdfPageObject, pageNumber: number, bbox: PageRedactionPlan["bboxes"][0]): PdfRedactAnnoObject {
+function createRedactionAnnotation(
+  page: PdfPageObject,
+  pageNumber: number,
+  bbox: PageRedactionPlan["bboxes"][0]
+): PdfRedactAnnoObject {
   const pageSize = toPdfPageSize(page);
   const bboxRect = {
     x: bbox.x,
@@ -224,7 +235,7 @@ async function mutateSinglePage(
   sourceBytes: Uint8Array<ArrayBufferLike>,
   pagePlan: PageRedactionPlan,
   mode: PageRedactionMode
-): Promise<Uint8Array<ArrayBufferLike>> {
+): Promise<PageMutationResult> {
   const engine = await getPdfiumExportEngine();
   const openFile: PdfFile = {
     id: createPdfiumDocumentId(pagePlan.pageNumber, mode),
@@ -257,20 +268,39 @@ async function mutateSinglePage(
   }
 
   try {
-    const page = getPageOrThrow(document, pagePlan.pageNumber);
+    const page = getPage(document, pagePlan.pageNumber);
+    if (!page) {
+      return {
+        redactedBytes: sourceBytes,
+        appliedPlan: null,
+        skippedBboxes: markAllBboxesSkipped(pagePlan.bboxes, "invalid_page_reference")
+      };
+    }
+
+    const { validBboxes, skippedBboxes } = splitBboxesByPageBounds(
+      pagePlan.bboxes,
+      toPdfPageSize(page)
+    );
+    if (validBboxes.length === 0) {
+      return {
+        redactedBytes: sourceBytes,
+        appliedPlan: null,
+        skippedBboxes
+      };
+    }
+
+    const validPlan: PageRedactionPlan = {
+      pageNumber: pagePlan.pageNumber,
+      bboxes: validBboxes
+    };
 
     try {
       if (mode === "batch") {
-        await applyBatchPageRedactions(engine, document, page, pagePlan);
+        await applyBatchPageRedactions(engine, document, page, validPlan);
       } else {
-        await applyLocalizedPageRedactions(engine, document, page, pagePlan);
+        await applyLocalizedPageRedactions(engine, document, page, validPlan);
       }
     } catch (error) {
-      const normalizedError = normalizePdfExportError(error);
-      if (normalizedError.code === PdfExportErrorCode.CoordinateMapping) {
-        throw normalizedError;
-      }
-
       throw new PdfExportError(
         PdfExportErrorCode.RedactionApply,
         `Secure redaction failed on page ${pagePlan.pageNumber}.`,
@@ -287,7 +317,11 @@ async function mutateSinglePage(
         `Timed out while saving secure redactions for page ${pagePlan.pageNumber}.`,
         { pageNumber: pagePlan.pageNumber, mode }
       );
-      return Uint8Array.from(new Uint8Array(savedBuffer));
+      return {
+        redactedBytes: Uint8Array.from(new Uint8Array(savedBuffer)),
+        appliedPlan: validPlan,
+        skippedBboxes
+      };
     } catch (error) {
       if (error instanceof PdfExportError) {
         throw error;
@@ -306,37 +340,46 @@ async function mutateSinglePage(
 export async function applySecurePdfRedactions(
   sourceBytes: Uint8Array<ArrayBufferLike>,
   pagePlan: readonly PageRedactionPlan[]
-): Promise<Uint8Array<ArrayBufferLike>> {
+): Promise<SecureRedactionResult> {
   let workingBytes: Uint8Array<ArrayBufferLike> = Uint8Array.from(sourceBytes);
+  const resolvedPagePlan: PageRedactionPlan[] = [];
+  const skippedBboxes: PdfExportSkippedBbox[] = [];
 
   for (const currentPlan of pagePlan) {
     if (currentPlan.bboxes.length === 0) {
       continue;
     }
 
+    let pageResult: PageMutationResult;
+
     try {
-      workingBytes = await mutateSinglePage(workingBytes, currentPlan, "batch");
-      continue;
+      pageResult = await mutateSinglePage(workingBytes, currentPlan, "batch");
     } catch (batchError) {
-      const normalizedBatchError = normalizePdfExportError(batchError);
-      if (normalizedBatchError.code === PdfExportErrorCode.CoordinateMapping) {
-        throw normalizedBatchError;
+      try {
+        pageResult = await mutateSinglePage(workingBytes, currentPlan, "localized");
+      } catch (fallbackError) {
+        throw new PdfExportError(
+          PdfExportErrorCode.RedactionApply,
+          `Secure redaction failed on page ${currentPlan.pageNumber} after localized fallback.`,
+          {
+            cause: fallbackError,
+            metadata: { pageNumber: currentPlan.pageNumber, batchError }
+          }
+        );
       }
     }
 
-    try {
-      workingBytes = await mutateSinglePage(workingBytes, currentPlan, "localized");
-    } catch (fallbackError) {
-      throw new PdfExportError(
-        PdfExportErrorCode.RedactionApply,
-        `Secure redaction failed on page ${currentPlan.pageNumber} after localized fallback.`,
-        {
-          cause: fallbackError,
-          metadata: { pageNumber: currentPlan.pageNumber }
-        }
-      );
+    workingBytes = pageResult.redactedBytes;
+    skippedBboxes.push(...pageResult.skippedBboxes);
+
+    if (pageResult.appliedPlan && pageResult.appliedPlan.bboxes.length > 0) {
+      resolvedPagePlan.push(pageResult.appliedPlan);
     }
   }
 
-  return workingBytes;
+  return {
+    redactedBytes: workingBytes,
+    pagePlan: resolvedPagePlan,
+    skippedBboxes
+  };
 }

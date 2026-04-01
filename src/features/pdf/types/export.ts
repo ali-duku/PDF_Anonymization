@@ -8,14 +8,29 @@ export interface PdfExportInput {
 
 export interface PdfExportOptions {}
 
+export type PdfExportSkippedBboxReason =
+  | "outside_page_bounds"
+  | "invalid_geometry"
+  | "invalid_page_reference";
+
+export interface PdfExportSkippedBbox {
+  bboxId: string;
+  pageNumber: number;
+  reason: PdfExportSkippedBboxReason;
+}
+
+export type PdfExportStatusTone = "warning" | "error";
+
 export interface PdfExportResult {
   blob: Blob;
   fileName: string;
+  skippedBboxes: readonly PdfExportSkippedBbox[];
 }
 
 export interface PdfExportController {
   canExport: boolean;
   isExporting: boolean;
-  errorMessage?: string;
+  statusMessage?: string;
+  statusTone?: PdfExportStatusTone;
   exportPdf: () => Promise<void>;
 }

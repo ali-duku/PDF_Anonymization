@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PdfBbox } from "../types/bbox";
-import type { PdfExportController } from "../types/export";
+import type { PdfExportController, PdfExportStatusTone } from "../types/export";
 import { downloadBlobFile } from "../utils/fileDownload";
 import { PdfExportError } from "../services/export/exportErrors";
+import { buildSkippedBboxesWarningMessage } from "../services/export/exportStatusMessage";
 
 interface UsePdfExportOptions {
   sourcePdfBlob: Blob | null;
@@ -35,7 +36,8 @@ export function usePdfExport({
   onExportSuccess
 }: UsePdfExportOptions): PdfExportController {
   const [isExporting, setIsExporting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string>();
+  const [statusMessage, setStatusMessage] = useState<string>();
+  const [statusTone, setStatusTone] = useState<PdfExportStatusTone>();
 
   const payloadRef = useRef<ExportPayloadRef>({
     sourcePdfBlob,
@@ -64,7 +66,8 @@ export function usePdfExport({
       return;
     }
 
-    setErrorMessage(undefined);
+    setStatusMessage(undefined);
+    setStatusTone(undefined);
     setIsExporting(true);
 
     try {
@@ -75,9 +78,17 @@ export function usePdfExport({
         sourceFileName: payload.sourceFileName
       });
       downloadBlobFile(result.blob, result.fileName);
+
+      const warningMessage = buildSkippedBboxesWarningMessage(result.skippedBboxes);
+      if (warningMessage) {
+        setStatusMessage(warningMessage);
+        setStatusTone("warning");
+      }
+
       onExportSuccess?.();
     } catch (error) {
-      setErrorMessage(normalizeExportError(error));
+      setStatusMessage(normalizeExportError(error));
+      setStatusTone("error");
     } finally {
       setIsExporting(false);
     }
@@ -87,9 +98,10 @@ export function usePdfExport({
     () => ({
       canExport,
       isExporting,
-      errorMessage,
+      statusMessage,
+      statusTone,
       exportPdf
     }),
-    [canExport, errorMessage, exportPdf, isExporting]
+    [canExport, exportPdf, isExporting, statusMessage, statusTone]
   );
 }

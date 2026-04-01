@@ -123,14 +123,16 @@ function PdfDocumentStageComponent({
     () => ({
       canExport: exportState.canExport && hasPdf,
       isExporting: exportState.isExporting,
-      errorMessage: exportState.errorMessage,
+      statusMessage: exportState.statusMessage,
+      statusTone: exportState.statusTone,
       exportPdf: exportState.exportPdf
     }),
     [
       exportState.canExport,
-      exportState.errorMessage,
       exportState.exportPdf,
       exportState.isExporting,
+      exportState.statusMessage,
+      exportState.statusTone,
       hasPdf
     ]
   );

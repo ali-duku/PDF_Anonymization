@@ -75,3 +75,20 @@
   cursor: not-allowed;
   transform: none;
 }
+
+.exportStatus {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.exportStatusWarning {
+  color: #f0c569;
+}
+
+.exportStatusError {
+  color: #ff8f8f;
+}

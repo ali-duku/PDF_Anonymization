@@ -26,6 +26,7 @@ Current feature set:
 - Export now uses a true PDF-preserving redaction pipeline instead of full-page rasterization.
 - Redacted regions are irreversibly anonymized through secure PDF mutation before final overlay drawing.
 - Selectable and searchable text remains preserved for non-anonymized content without rebuilt hidden text layers.
+- Export gracefully skips invalid bboxes (including out-of-bounds/page-invalid entries) and continues exporting all valid bboxes.
 - Export label/number ordering, Arabic-Indic numbering, and bbox border styling stay aligned with in-app preview rules.
 - Export processes all pages and downloads one final anonymized PDF file.
 - Persisted session data stores only app/session metadata and bbox state; raw PDF file bytes are never persisted.

@@ -2,6 +2,8 @@ import type { Rect } from "@embedpdf/models";
 import type { PdfBboxRect, PdfPageSize } from "../../types/bbox";
 import { PdfExportError, PdfExportErrorCode } from "./exportErrors";
 
+export type ExportRectValidationIssue = "invalid_geometry" | "outside_page_bounds";
+
 function isValidPageSize(pageSize: PdfPageSize): boolean {
   return (
     Number.isFinite(pageSize.width) &&
@@ -20,15 +22,12 @@ function isFiniteRect(rect: PdfBboxRect): boolean {
   );
 }
 
-export function assertRectWithinPage(
+export function getRectValidationIssue(
   rect: PdfBboxRect,
-  pageSize: PdfPageSize,
-  context: { pageNumber: number; bboxId?: string }
-): void {
+  pageSize: PdfPageSize
+): ExportRectValidationIssue | null {
   if (!isValidPageSize(pageSize) || !isFiniteRect(rect) || rect.width <= 0 || rect.height <= 0) {
-    throw new PdfExportError(PdfExportErrorCode.CoordinateMapping, "Invalid export bbox geometry.", {
-      metadata: context
-    });
+    return "invalid_geometry";
   }
 
   const epsilon = 0.001;
@@ -40,7 +39,22 @@ export function assertRectWithinPage(
     right <= pageSize.width + epsilon &&
     bottom <= pageSize.height + epsilon;
 
-  if (!isInside) {
+  return isInside ? null : "outside_page_bounds";
+}
+
+export function assertRectWithinPage(
+  rect: PdfBboxRect,
+  pageSize: PdfPageSize,
+  context: { pageNumber: number; bboxId?: string }
+): void {
+  const issue = getRectValidationIssue(rect, pageSize);
+  if (issue === "invalid_geometry") {
+    throw new PdfExportError(PdfExportErrorCode.CoordinateMapping, "Invalid export bbox geometry.", {
+      metadata: context
+    });
+  }
+
+  if (issue === "outside_page_bounds") {
     throw new PdfExportError(PdfExportErrorCode.CoordinateMapping, "A bbox is outside page bounds.", {
       metadata: context
     });

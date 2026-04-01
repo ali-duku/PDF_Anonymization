@@ -35,7 +35,8 @@ export function AppPage({ services }: AppPageProps) {
   const [exportController, setExportController] = useState<PdfExportController>({
     canExport: false,
     isExporting: false,
-    errorMessage: undefined,
+    statusMessage: undefined,
+    statusTone: undefined,
     exportPdf: async () => {
       // No-op until the viewer publishes a live export controller.
     }
@@ -52,7 +53,8 @@ export function AppPage({ services }: AppPageProps) {
       if (
         previous.canExport === nextController.canExport &&
         previous.isExporting === nextController.isExporting &&
-        previous.errorMessage === nextController.errorMessage &&
+        previous.statusMessage === nextController.statusMessage &&
+        previous.statusTone === nextController.statusTone &&
         previous.exportPdf === nextController.exportPdf
       ) {
         return previous;
@@ -91,7 +93,8 @@ export function AppPage({ services }: AppPageProps) {
         onExportPdf={exportController.exportPdf}
         canExportPdf={exportController.canExport}
         isExportingPdf={exportController.isExporting}
-        exportStatusMessage={exportController.errorMessage}
+        exportStatusMessage={exportController.statusMessage}
+        exportStatusTone={exportController.statusTone}
       />
 
       <main className={styles.mainContent}>

@@ -2,6 +2,8 @@
 
 ## [Unreleased] - 2026-03-30
 
+- Export now validates bbox geometry/page assignment per bbox and skips invalid entries (including out-of-bounds bboxes) instead of aborting the full export.
+- Added non-blocking export warning feedback when one or more invalid bboxes are skipped.
 - Refactored bbox label fitting around a canonical PDF-space content-box layout shared by preview sizing and export rendering.
 - Fixed exported bbox labels so text stays inside a deterministic all-sides safe inset and no longer relies on clip-path masking.
 - Made export label fitting resolution-independent by computing font size from bbox/page units first and using canvas scale only for raster fidelity.

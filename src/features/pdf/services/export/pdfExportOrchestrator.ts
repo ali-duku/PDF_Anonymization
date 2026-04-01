@@ -19,16 +19,19 @@ export async function exportRedactedPdfWithBboxes(
   try {
     const sourceBytes = new Uint8Array(await input.sourcePdfBlob.arrayBuffer());
     const redactionResult = await applySecurePdfRedactions(sourceBytes, pagePlan);
-    const overlayBytes =
+    const overlayResult =
       redactionResult.pagePlan.length > 0
         ? await drawPdfExportOverlays(redactionResult.redactedBytes, redactionResult.pagePlan)
-        : redactionResult.redactedBytes;
-    const finalizedBytes = Uint8Array.from(overlayBytes);
+        : {
+            outputBytes: redactionResult.redactedBytes,
+            skippedBboxes: []
+          };
+    const finalizedBytes = Uint8Array.from(overlayResult.outputBytes);
 
     return {
       blob: new Blob([finalizedBytes], { type: EXPORT_MIME_TYPE }),
       fileName: buildAnonymizedFileName(input.sourceFileName),
-      skippedBboxes: redactionResult.skippedBboxes
+      skippedBboxes: [...redactionResult.skippedBboxes, ...overlayResult.skippedBboxes]
     };
   } catch (error) {
     const normalizedError = normalizePdfExportError(error);

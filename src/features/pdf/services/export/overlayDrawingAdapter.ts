@@ -7,17 +7,21 @@ import {
   BBOX_FILL_COLOR,
 } from "../../constants/bbox";
 import type { PdfPageSize } from "../../types/bbox";
-import {
-  assertRectWithinPage,
-  toPdfBottomLeftRect,
-} from "./coordinateConversion";
+import type { PdfExportSkippedBbox } from "../../types/export";
+import { toPdfBottomLeftRect } from "./coordinateConversion";
 import { PdfExportError, PdfExportErrorCode } from "./exportErrors";
+import { markAllBboxesSkipped, splitBboxesByPageBounds } from "./exportBboxValidation";
 import {
   embedExportLabelFonts,
   type ExportLabelFonts,
 } from "./exportLabelFonts";
 import { drawExportLabelText } from "./exportLabelTextRenderer";
 import type { PageRedactionPlan } from "./redactionPlanBuilder";
+
+export interface OverlayDrawingResult {
+  outputBytes: Uint8Array;
+  skippedBboxes: readonly PdfExportSkippedBbox[];
+}
 
 interface ParsedColor {
   red: number;
@@ -63,7 +67,6 @@ async function canOpenPdfBytes(pdfBytes: Uint8Array): Promise<boolean> {
 async function drawBboxOverlay(
   page: PDFPage,
   pageSize: PdfPageSize,
-  pageNumber: number,
   bbox: PageRedactionPlan["bboxes"][0],
   fonts: ExportLabelFonts,
 ): Promise<void> {
@@ -73,11 +76,6 @@ async function drawBboxOverlay(
     width: bbox.width,
     height: bbox.height,
   };
-
-  assertRectWithinPage(sourceRect, pageSize, {
-    pageNumber,
-    bboxId: bbox.id,
-  });
 
   const pdfRect = toPdfBottomLeftRect(sourceRect, pageSize);
   const fillColor = toPdfLibColor(BBOX_FILL_COLOR);
@@ -124,11 +122,12 @@ async function drawBboxOverlay(
 export async function drawPdfExportOverlays(
   sourcePdfBytes: Uint8Array,
   pagePlan: readonly PageRedactionPlan[],
-): Promise<Uint8Array> {
+): Promise<OverlayDrawingResult> {
   const outputDocument = await PDFDocument.load(sourcePdfBytes, {
     ignoreEncryption: true,
   });
   const fonts = await embedExportLabelFonts(outputDocument);
+  const skippedBboxes: PdfExportSkippedBbox[] = [];
 
   for (const plan of pagePlan) {
     if (plan.bboxes.length === 0) {
@@ -137,33 +136,33 @@ export async function drawPdfExportOverlays(
 
     const pageIndex = plan.pageNumber - 1;
     if (pageIndex < 0 || pageIndex >= outputDocument.getPageCount()) {
-      throw new PdfExportError(
-        PdfExportErrorCode.CoordinateMapping,
-        "A bbox references a page that does not exist.",
-        {
-          metadata: {
-            pageNumber: plan.pageNumber,
-            pageCount: outputDocument.getPageCount(),
-          },
-        },
-      );
+      skippedBboxes.push(...markAllBboxesSkipped(plan.bboxes, "invalid_page_reference"));
+      continue;
     }
 
     const page = outputDocument.getPage(pageIndex);
     const pageSize: PdfPageSize = page.getSize();
+    const { validBboxes, skippedBboxes: pageSkippedBboxes } = splitBboxesByPageBounds(plan.bboxes, pageSize);
+    skippedBboxes.push(...pageSkippedBboxes);
 
-    for (const bbox of plan.bboxes) {
-      await drawBboxOverlay(page, pageSize, plan.pageNumber, bbox, fonts);
+    for (const bbox of validBboxes) {
+      await drawBboxOverlay(page, pageSize, bbox, fonts);
     }
   }
 
   const savedBytes = new Uint8Array(await outputDocument.save());
   const isReadable = await canOpenPdfBytes(savedBytes);
   if (isReadable) {
-    return savedBytes;
+    return {
+      outputBytes: savedBytes,
+      skippedBboxes
+    };
   }
 
   // Some encrypted-source PDFs can be processed for drawing but still serialize into
   // bytes that browser viewers reject. Prefer a readable redacted export over failure.
-  return Uint8Array.from(sourcePdfBytes);
+  return {
+    outputBytes: Uint8Array.from(sourcePdfBytes),
+    skippedBboxes
+  };
 }

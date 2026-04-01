@@ -37,7 +37,7 @@ PDF Anonymization v0.5.0 uses a single-page workspace with a PDF-first flow, int
   - `constants/session.ts`: persistence/save/history/restore constants.
   - `types/bbox.ts`: bbox domain contracts.
   - `types/session.ts`: save lifecycle, history, controller, and persisted session contracts.
-  - `services/export/*`: export orchestration, redaction planning, PDFium mutation adapter, and overlay rendering adapter.
+  - `services/export/*`: export orchestration, redaction planning, PDFium mutation adapter, and overlay rendering adapter (including preview-token to PDF-unit parity mapping, glyph-metric label fitting, and PDF stroke-weight calibration for border/text fidelity).
   - `services/sessionStorageService.ts`: localStorage persistence with schema validation/pruning.
   - `services/*`: retrieval adapters plus export service entrypoint.
   - `utils/*`: identifier validation, geometry helpers, clipboard/duplicate helpers, worker setup, session identity utilities, and shared bbox label layout/fitting helpers for preview/export parity.
@@ -54,7 +54,7 @@ Each component folder follows:
 
 ## Runtime Data Flow
 
-1. `PdfSourceControls` accepts file ID retrieval within the viewer toolbar.
+1. `PdfSourceControls` accepts file ID within the viewer toolbar.
 2. `usePdfRetrieval` provides the active source document.
 3. `usePdfDocument` loads and renders the selected PDF using PDF.js and exposes display/base page dimensions.
 4. `usePdfBboxes` owns per-document bbox state in page coordinates and orchestrates undo/redo, autosave/manual save, restore prompts, and export-revision tracking.

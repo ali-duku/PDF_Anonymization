@@ -10,6 +10,8 @@ export const BBOX_DEFAULT_SIZE = Object.freeze({
 
 export const BBOX_HANDLE_SIZE = 10;
 export const BBOX_BORDER_WIDTH = 1;
+// Preview tokens are defined in CSS px; export converts them into PDF point units for parity.
+export const BBOX_CSS_PIXEL_TO_PDF_UNIT = 72 / 96;
 export const BBOX_FILL_COLOR = "#ffffff";
 export const BBOX_BORDER_COLOR = "#000000";
 export const BBOX_TEXT_COLOR = "#000000";
@@ -41,6 +43,9 @@ export const BBOX_LABEL_DESCENT_EM = 0.42;
 export const BBOX_LABEL_LINEBOX_EM = BBOX_LABEL_ASCENT_EM + BBOX_LABEL_DESCENT_EM;
 export const BBOX_LABEL_WIDTH_SAFETY_MULTIPLIER = 1.12;
 export const BBOX_LABEL_MEASURED_WIDTH_SAFETY_MULTIPLIER = 1.04;
+export const BBOX_LABEL_METRICS_FIT_SAFETY_RATIO = 0.99;
+// PDF strokes render slightly heavier than CSS borders at equivalent numeric widths.
+export const BBOX_EXPORT_BORDER_VISUAL_WEIGHT_COMPENSATION = 0.8;
 export const BBOX_LABEL_FONT_WEIGHT = 600;
 export const BBOX_LABEL_FONT_FAMILY =
   '"Space Grotesk", "Segoe UI", "Tahoma", sans-serif';

@@ -13,7 +13,11 @@ export const APP_META: AppMeta = {
         "Implemented deterministic bounded undo/redo for create, move, resize, delete, duplicate, paste, and label/number edits.",
         "Added restore prompt for matching PDF sessions after close/refresh plus close-protection warnings for dirty or unexported work.",
         "Added guarded source-switch prompts to reduce accidental loss when replacing/resetting a PDF session.",
-        "Refined export label fitting with shared PDF-space layout rules so bbox text keeps a safe inset and avoids clipping against borders."
+        "Refined export label fitting with shared PDF-space layout rules so bbox text keeps a safe inset and avoids clipping against borders.",
+        "Improved export parity so bbox border weight and label text sizing more closely match the in-app preview while preserving no-clipping safety.",
+        "Added glyph-metric-aware export label fitting and baseline centering so exported text uses available safe space better without clipping.",
+        "Upgraded exported bbox labels to embedded vector text for sharper print/PDF fidelity instead of rasterized label glyph images.",
+        "Added export-time Arabic/Latin font embedding with script-aware run rendering so Arabic labels, Arabic-Indic numerals, and mixed-script text remain high-quality and readable."
       ]
     },
     {

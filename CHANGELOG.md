@@ -5,6 +5,10 @@
 - Refactored bbox label fitting around a canonical PDF-space content-box layout shared by preview sizing and export rendering.
 - Fixed exported bbox labels so text stays inside a deterministic all-sides safe inset and no longer relies on clip-path masking.
 - Made export label fitting resolution-independent by computing font size from bbox/page units first and using canvas scale only for raster fidelity.
+- Fixed export border-weight drift by mapping preview CSS-pixel border tokens to canonical PDF units before drawing export overlays.
+- Improved export label text-size parity with preview by applying the same token-unit conversion to export label padding/safe inset/font sizing while preserving no-clipping safety.
+- Refined preview/export text fitting with glyph-metric-aware sizing and baseline centering so export uses safe space better without clipping.
+- Added explicit PDF stroke visual-weight compensation to align exported bbox border appearance with preview.
 
 ## [0.5.0] - 2026-03-28
 

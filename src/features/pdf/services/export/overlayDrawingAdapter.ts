@@ -42,6 +42,15 @@ function toPdfLibColor(hexColor: string) {
   return rgb(parsed.red / 255, parsed.green / 255, parsed.blue / 255);
 }
 
+async function canOpenPdfBytes(pdfBytes: Uint8Array): Promise<boolean> {
+  try {
+    await PDFDocument.load(pdfBytes);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function drawBboxOverlay(
   page: PDFPage,
   pageSize: PdfPageSize,

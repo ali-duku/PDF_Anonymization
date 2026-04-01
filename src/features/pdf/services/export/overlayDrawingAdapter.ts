@@ -4,52 +4,19 @@ import {
   BBOX_BORDER_WIDTH,
   BBOX_CSS_PIXEL_TO_PDF_UNIT,
   BBOX_EXPORT_BORDER_VISUAL_WEIGHT_COMPENSATION,
-  BBOX_FILL_COLOR,
-  BBOX_LABEL_ASCENT_EM,
-  BBOX_LABEL_DESCENT_EM,
-  BBOX_LABEL_FONT_FAMILY,
-  BBOX_LABEL_FONT_WEIGHT,
-  BBOX_LABEL_SEPARATOR,
-  BBOX_TEXT_COLOR
+  BBOX_FILL_COLOR
 } from "../../constants/bbox";
-import {
-  EXPORT_CANVAS_ENCODE_TIMEOUT_MS,
-  EXPORT_FONT_READY_TIMEOUT_MS,
-  EXPORT_LABEL_CANVAS_SCALE,
-  EXPORT_LABEL_MAX_CANVAS_EDGE,
-  EXPORT_LABEL_MIN_CANVAS_EDGE
-} from "../../constants/export";
-import type { PdfBboxRect, PdfPageSize } from "../../types/bbox";
-import { formatBboxDisplayLabel, getBboxDisplayLabelParts } from "../../utils/bboxGeometry";
-import { buildBboxLabelLayoutSpec } from "../../utils/bboxLabelLayout";
+import type { PdfPageSize } from "../../types/bbox";
 import { assertRectWithinPage, toPdfBottomLeftRect } from "./coordinateConversion";
 import { PdfExportError, PdfExportErrorCode } from "./exportErrors";
-import { withExportTimeout } from "./exportTimeouts";
+import { embedExportLabelFonts, type ExportLabelFonts } from "./exportLabelFonts";
+import { drawExportLabelText } from "./exportLabelTextRenderer";
 import type { PageRedactionPlan } from "./redactionPlanBuilder";
 
 interface ParsedColor {
   red: number;
   green: number;
   blue: number;
-}
-
-interface LabelCanvasSize {
-  width: number;
-  height: number;
-  scaleX: number;
-  scaleY: number;
-  fontScale: number;
-}
-
-const LABEL_MEASURE_FONT_SIZE = 100;
-
-async function canOpenPdfBytes(bytes: Uint8Array): Promise<boolean> {
-  try {
-    await PDFDocument.load(bytes);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 function parseHexColor(hexColor: string): ParsedColor {
@@ -75,210 +42,12 @@ function toPdfLibColor(hexColor: string) {
   return rgb(parsed.red / 255, parsed.green / 255, parsed.blue / 255);
 }
 
-async function waitForDocumentFonts(): Promise<void> {
-  if (typeof document === "undefined" || !("fonts" in document)) {
-    return;
-  }
-
-  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
-
-  try {
-    await Promise.race([
-      document.fonts.ready,
-      new Promise<void>((resolve) => {
-        timeoutHandle = setTimeout(resolve, EXPORT_FONT_READY_TIMEOUT_MS);
-      })
-    ]);
-  } catch {
-    // Continue with browser fallback fonts if FontFaceSet is unavailable.
-  } finally {
-    if (timeoutHandle !== null) {
-      clearTimeout(timeoutHandle);
-    }
-  }
-}
-
-function createCanvas(width: number, height: number): HTMLCanvasElement {
-  if (typeof document === "undefined") {
-    throw new PdfExportError(
-      PdfExportErrorCode.BrowserSupport,
-      "PDF export is only available in a browser environment."
-    );
-  }
-
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  return canvas;
-}
-
-async function canvasToPngBytes(canvas: HTMLCanvasElement): Promise<Uint8Array> {
-  const blobPromise = new Promise<Blob | null>((resolve, reject) => {
-    try {
-      canvas.toBlob(resolve, "image/png");
-    } catch (error) {
-      reject(error);
-    }
-  });
-
-  const blob = await withExportTimeout(
-    blobPromise,
-    EXPORT_CANVAS_ENCODE_TIMEOUT_MS,
-    PdfExportErrorCode.OverlayRendering,
-    "Timed out while encoding an overlay label image."
-  );
-
-  if (!blob) {
-    throw new PdfExportError(PdfExportErrorCode.OverlayRendering, "Failed to encode an overlay label image.");
-  }
-
-  return new Uint8Array(await blob.arrayBuffer());
-}
-
-function resolveMeasuredLabelWidthPerFontUnit(
-  context: CanvasRenderingContext2D,
-  text: string
-): number | null {
-  context.font = `${BBOX_LABEL_FONT_WEIGHT} ${LABEL_MEASURE_FONT_SIZE}px ${BBOX_LABEL_FONT_FAMILY}`;
-  const measuredWidth = context.measureText(text).width;
-  if (measuredWidth <= 0) {
-    return null;
-  }
-
-  return measuredWidth / LABEL_MEASURE_FONT_SIZE;
-}
-
-function resolveMeasuredLabelTextMetrics(
-  context: CanvasRenderingContext2D,
-  text: string,
-  fontSize: number
-) {
-  context.font = `${BBOX_LABEL_FONT_WEIGHT} ${fontSize}px ${BBOX_LABEL_FONT_FAMILY}`;
-  const metrics = context.measureText(text);
-
-  return {
-    width: metrics.width,
-    ascent:
-      typeof metrics.actualBoundingBoxAscent === "number" && metrics.actualBoundingBoxAscent > 0
-        ? metrics.actualBoundingBoxAscent
-        : BBOX_LABEL_ASCENT_EM * fontSize,
-    descent:
-      typeof metrics.actualBoundingBoxDescent === "number" && metrics.actualBoundingBoxDescent > 0
-        ? metrics.actualBoundingBoxDescent
-        : BBOX_LABEL_DESCENT_EM * fontSize
-  };
-}
-
-function drawCenteredLabelRuns(
-  context: CanvasRenderingContext2D,
-  entityLabel: string,
-  instanceLabel: string | null,
-  centerX: number,
-  baselineY: number
-): void {
-  if (!instanceLabel) {
-    context.direction = "rtl";
-    context.textAlign = "center";
-    context.fillText(entityLabel, centerX, baselineY);
-    return;
-  }
-
-  // Keep entity and Arabic-Indic number ordering identical to preview rendering.
-  const entityWidth = context.measureText(entityLabel).width;
-  const separatorWidth = context.measureText(BBOX_LABEL_SEPARATOR).width;
-  const instanceWidth = context.measureText(instanceLabel).width;
-  const totalWidth = entityWidth + separatorWidth + instanceWidth;
-  const leftEdge = centerX - totalWidth * 0.5;
-
-  context.direction = "rtl";
-  context.textAlign = "right";
-  context.fillText(entityLabel, leftEdge + entityWidth, baselineY);
-  context.fillText(
-    instanceLabel,
-    leftEdge + entityWidth + separatorWidth + instanceWidth,
-    baselineY
-  );
-}
-
-function resolveLabelCanvasSize(rect: PdfBboxRect): LabelCanvasSize {
-  const initialScale = EXPORT_LABEL_CANVAS_SCALE;
-  let width = Math.max(Math.round(rect.width * initialScale), EXPORT_LABEL_MIN_CANVAS_EDGE);
-  let height = Math.max(Math.round(rect.height * initialScale), EXPORT_LABEL_MIN_CANVAS_EDGE);
-
-  const largestEdge = Math.max(width, height);
-  if (largestEdge > EXPORT_LABEL_MAX_CANVAS_EDGE) {
-    const reductionFactor = EXPORT_LABEL_MAX_CANVAS_EDGE / largestEdge;
-    width = Math.max(Math.round(width * reductionFactor), EXPORT_LABEL_MIN_CANVAS_EDGE);
-    height = Math.max(Math.round(height * reductionFactor), EXPORT_LABEL_MIN_CANVAS_EDGE);
-  }
-
-  const scaleX = width / rect.width;
-  const scaleY = height / rect.height;
-
-  return {
-    width,
-    height,
-    scaleX,
-    scaleY,
-    fontScale: Math.min(scaleX, scaleY)
-  };
-}
-
-async function createLabelOverlayImageBytes(
-  bbox: PageRedactionPlan["bboxes"][0],
-  rect: PdfBboxRect,
-  borderWidth: number
-): Promise<Uint8Array | null> {
-  const labelText = formatBboxDisplayLabel(bbox.entityLabel, bbox.instanceNumber);
-  if (!labelText) {
-    return null;
-  }
-
-  const parts = getBboxDisplayLabelParts(bbox.entityLabel, bbox.instanceNumber);
-  if (!parts.entityLabel) {
-    return null;
-  }
-
-  const { width, height, scaleX, scaleY, fontScale } = resolveLabelCanvasSize(rect);
-  const canvas = createCanvas(width, height);
-  const context = canvas.getContext("2d");
-  if (!context) {
-    throw new PdfExportError(PdfExportErrorCode.OverlayRendering, "Unable to create overlay label context.");
-  }
-
-  const measuredWidthPerFontUnit = resolveMeasuredLabelWidthPerFontUnit(context, labelText);
-  // Fit text in canonical PDF-space units first; canvas scaling only controls raster fidelity.
-  const layoutSpec = buildBboxLabelLayoutSpec({
-    labelText,
-    rect: { x: 0, y: 0, width: rect.width, height: rect.height },
-    measuredWidthPerFontUnit,
-    measureTextMetrics: (fontSize, text) => resolveMeasuredLabelTextMetrics(context, text, fontSize),
-    borderWidth,
-    tokenScale: BBOX_CSS_PIXEL_TO_PDF_UNIT
-  });
-  const fontSize = Math.max(1, layoutSpec.fontSize * fontScale);
-
-  context.clearRect(0, 0, width, height);
-  context.fillStyle = BBOX_TEXT_COLOR;
-  context.textBaseline = "alphabetic";
-  context.font = `${BBOX_LABEL_FONT_WEIGHT} ${fontSize}px ${BBOX_LABEL_FONT_FAMILY}`;
-  drawCenteredLabelRuns(
-    context,
-    parts.entityLabel,
-    parts.instanceLabel,
-    layoutSpec.centerX * scaleX,
-    layoutSpec.baselineY * scaleY
-  );
-
-  return canvasToPngBytes(canvas);
-}
-
 async function drawBboxOverlay(
-  outputDocument: PDFDocument,
   page: PDFPage,
   pageSize: PdfPageSize,
   pageNumber: number,
-  bbox: PageRedactionPlan["bboxes"][0]
+  bbox: PageRedactionPlan["bboxes"][0],
+  fonts: ExportLabelFonts
 ): Promise<void> {
   const sourceRect = {
     x: bbox.x,
@@ -319,17 +88,16 @@ async function drawBboxOverlay(
     borderWidth
   });
 
-  const labelImageBytes = await createLabelOverlayImageBytes(bbox, sourceRect, borderWidth);
-  if (!labelImageBytes) {
-    return;
-  }
-
-  const labelImage = await outputDocument.embedPng(labelImageBytes);
-  page.drawImage(labelImage, {
-    x: pdfRect.x,
-    y: pdfRect.y,
-    width: pdfRect.width,
-    height: pdfRect.height
+  drawExportLabelText({
+    page,
+    sourceRect,
+    pdfRect,
+    borderWidth,
+    bbox: {
+      entityLabel: bbox.entityLabel,
+      instanceNumber: bbox.instanceNumber
+    },
+    fonts
   });
 }
 
@@ -337,11 +105,10 @@ export async function drawPdfExportOverlays(
   sourcePdfBytes: Uint8Array,
   pagePlan: readonly PageRedactionPlan[]
 ): Promise<Uint8Array> {
-  await waitForDocumentFonts();
-
   const outputDocument = await PDFDocument.load(sourcePdfBytes, {
     ignoreEncryption: true
   });
+  const fonts = await embedExportLabelFonts(outputDocument);
 
   for (const plan of pagePlan) {
     if (plan.bboxes.length === 0) {
@@ -366,17 +133,9 @@ export async function drawPdfExportOverlays(
     const pageSize: PdfPageSize = page.getSize();
 
     for (const bbox of plan.bboxes) {
-      await drawBboxOverlay(outputDocument, page, pageSize, plan.pageNumber, bbox);
+      await drawBboxOverlay(page, pageSize, plan.pageNumber, bbox, fonts);
     }
   }
 
-  const savedBytes = new Uint8Array(await outputDocument.save());
-  const isReadable = await canOpenPdfBytes(savedBytes);
-  if (isReadable) {
-    return savedBytes;
-  }
-
-  // Some encrypted-source PDFs can be processed for drawing but still serialize into
-  // bytes that browser viewers reject. Prefer a readable redacted export over failure.
-  return Uint8Array.from(sourcePdfBytes);
+  return new Uint8Array(await outputDocument.save());
 }

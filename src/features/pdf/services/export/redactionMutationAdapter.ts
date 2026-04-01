@@ -99,6 +99,40 @@ function createRedactionAnnotation(page: PdfPageObject, pageNumber: number, bbox
   };
 }
 
+async function ensureDocumentEncryptionRemoved(
+  engine: PdfEngine<Blob>,
+  document: PdfDocumentObject,
+  pageNumber: number,
+  mode: PageRedactionMode
+): Promise<void> {
+  const metadata = { pageNumber, mode };
+  const isEncrypted = await waitForEngineOperation(
+    engine.isEncrypted(document).toPromise(),
+    PdfExportErrorCode.Save,
+    `Timed out while checking encryption state for page ${pageNumber}.`,
+    metadata
+  );
+
+  if (!isEncrypted) {
+    return;
+  }
+
+  const removed = await waitForEngineOperation(
+    engine.removeEncryption(document).toPromise(),
+    PdfExportErrorCode.Save,
+    `Timed out while removing encryption before saving page ${pageNumber}.`,
+    metadata
+  );
+
+  if (!removed) {
+    throw new PdfExportError(
+      PdfExportErrorCode.Save,
+      `Failed to remove encryption before saving page ${pageNumber}.`,
+      { metadata }
+    );
+  }
+}
+
 async function closeDocumentQuietly(
   engine: PdfEngine<Blob>,
   document: PdfDocumentObject | null
@@ -245,6 +279,8 @@ async function mutateSinglePage(
     }
 
     try {
+      await ensureDocumentEncryptionRemoved(engine, document, pagePlan.pageNumber, mode);
+
       const savedBuffer = await waitForEngineOperation(
         engine.saveAsCopy(document).toPromise(),
         PdfExportErrorCode.Save,

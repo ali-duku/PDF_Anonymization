@@ -59,7 +59,7 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 export function normalizeBboxLabelText(text: string): string {
-  return text.replace(/\s+/g, " ").trim();
+  return text.trim().length === 0 ? "" : text;
 }
 
 export function estimateBboxLabelWidthUnits(labelText: string): number {

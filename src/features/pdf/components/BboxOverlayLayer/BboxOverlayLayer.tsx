@@ -13,8 +13,6 @@ import {
   BBOX_BORDER_WIDTH,
   BBOX_ACTION_BUTTON_SIZE,
   BBOX_ACTION_CLUSTER_GAP,
-  BBOX_ACTION_CLUSTER_OFFSET_X,
-  BBOX_ACTION_CLUSTER_OFFSET_Y,
   BBOX_ACTION_CLUSTER_Z_INDEX,
   BBOX_ACTION_GLASS_BLUR,
   BBOX_ACTION_HOVER_LIFT,
@@ -33,7 +31,9 @@ import {
   BBOX_MIN_SIZE,
   BBOX_TEXT_COLOR
 } from "../../constants/bbox";
+import { useBboxOverlayKeyboardShortcuts } from "../../hooks/useBboxOverlayKeyboardShortcuts";
 import type { BboxDisplayRect, BboxResizeHandle, PdfBbox, PdfBboxRect, PdfPageSize } from "../../types/bbox";
+import { resolveBboxActionClusterOffset, type BboxActionClusterOffset } from "../../utils/bboxActionClusterPlacement";
 import {
   buildRectFromPoints,
   clampValue,
@@ -79,6 +79,7 @@ type ActiveInteraction = ActiveMoveInteraction | ActiveResizeInteraction;
 interface RenderableBbox {
   bbox: PdfBbox;
   displayRect: BboxDisplayRect;
+  actionClusterOffset: BboxActionClusterOffset;
 }
 
 function buildPagePointProjector(stageElement: HTMLElement | null, pageSize: PdfPageSize): PagePointProjector | null {
@@ -115,6 +116,8 @@ function BboxOverlayLayerComponent({
   onDeleteBbox,
   onDuplicateBbox,
   onCopyBbox,
+  onPasteBbox,
+  canPasteBbox,
   onCreateBbox,
   onUpdateBboxRect,
   onUpdateBboxEntityLabel,
@@ -144,7 +147,15 @@ function BboxOverlayLayerComponent({
     return bboxes
       .map<RenderableBbox | null>((bbox) => {
         const displayRect = pageRectToDisplayRect(bbox, pageSize, displayPageSize);
-        return displayRect ? { bbox, displayRect } : null;
+        if (!displayRect) {
+          return null;
+        }
+
+        return {
+          bbox,
+          displayRect,
+          actionClusterOffset: resolveBboxActionClusterOffset(displayRect, displayPageSize)
+        };
       })
       .filter((item): item is RenderableBbox => Boolean(item));
   }, [bboxes, canRenderOverlay, displayPageSize, pageSize]);
@@ -392,6 +403,26 @@ function BboxOverlayLayerComponent({
     return pageRectToDisplayRect(pageRect, pageSize, displayPageSize);
   }, [canRenderOverlay, displayPageSize, draftCreation, pageSize]);
 
+  useBboxOverlayKeyboardShortcuts({
+    isEnabled: canRenderOverlay,
+    selectedBboxId,
+    editingBboxId,
+    hasDraftCreation: Boolean(draftCreation),
+    hasActiveInteraction: Boolean(activeInteraction),
+    canPasteBbox,
+    onCancelDraftCreation: () => {
+      setDraftCreation(null);
+    },
+    onCloseEditor: closeEditor,
+    onClearSelection: () => {
+      onSelectBbox(null);
+    },
+    onDeleteBbox,
+    onStartEditingBbox,
+    onCopyBbox,
+    onPasteBbox
+  });
+
   if (!canRenderOverlay) {
     return null;
   }
@@ -407,8 +438,6 @@ function BboxOverlayLayerComponent({
           "--bbox-action-button-size": `${BBOX_ACTION_BUTTON_SIZE}px`,
           "--bbox-action-icon-size": `${BBOX_ACTION_ICON_SIZE}px`,
           "--bbox-action-cluster-gap": `${BBOX_ACTION_CLUSTER_GAP}px`,
-          "--bbox-action-cluster-offset-x": `${BBOX_ACTION_CLUSTER_OFFSET_X}px`,
-          "--bbox-action-cluster-offset-y": `${BBOX_ACTION_CLUSTER_OFFSET_Y}px`,
           "--bbox-action-cluster-z-index": `${BBOX_ACTION_CLUSTER_Z_INDEX}`,
           "--bbox-action-glass-blur": `${BBOX_ACTION_GLASS_BLUR}px`,
           "--bbox-action-hover-lift": `${BBOX_ACTION_HOVER_LIFT}px`,
@@ -428,48 +457,13 @@ function BboxOverlayLayerComponent({
       tabIndex={0}
       aria-label="BBox overlay"
       onPointerDown={handleOverlayPointerDown}
-      onKeyDown={(event) => {
-        if (event.key === "Escape" && draftCreation) {
-          event.preventDefault();
-          setDraftCreation(null);
-          return;
-        }
-
-        if (event.key === "Escape" && editingBboxId) {
-          event.preventDefault();
-          closeEditor();
-          return;
-        }
-
-        if (event.key === "Escape" && selectedBboxId) {
-          event.preventDefault();
-          onSelectBbox(null);
-          return;
-        }
-
-        if ((event.key === "Delete" || event.key === "Backspace") && selectedBboxId && !editingBboxId) {
-          event.preventDefault();
-          onDeleteBbox(selectedBboxId);
-          return;
-        }
-
-        if (
-          event.key === "Enter" &&
-          selectedBboxId &&
-          !editingBboxId &&
-          !draftCreation &&
-          !activeInteraction
-        ) {
-          event.preventDefault();
-          onStartEditingBbox(selectedBboxId);
-        }
-      }}
     >
-      {renderableBboxes.map(({ bbox, displayRect }) => (
+      {renderableBboxes.map(({ bbox, displayRect, actionClusterOffset }) => (
         <BboxItem
           key={bbox.id}
           bbox={bbox}
           displayRect={displayRect}
+          actionClusterOffset={actionClusterOffset}
           isSelected={selectedBboxId === bbox.id}
           isEditing={editingBboxId === bbox.id}
           entityOptions={entityOptions}

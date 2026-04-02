@@ -2,6 +2,12 @@
 
 ## [Unreleased] - 2026-03-30
 
+- Fixed bbox action-cluster placement near page/viewer edges so action icons stay fully visible without top-edge clipping while remaining attached to bbox top alignment.
+- Added viewer keyboard shortcuts for bbox clipboard actions: `Ctrl/Cmd+C` copies the selected bbox and `Ctrl/Cmd+V` pastes on the current page using existing paste safety/clamping rules.
+- Updated entity combobox option building so the exact typed value is always shown as a first-class selectable option when it is distinct from existing labels.
+- Fixed viewer shortcut reliability by moving bbox keyboard handling to a centralized window-level hook with input-focus safety guards.
+- New drag-created bboxes now open the inline editor immediately so entity details can be entered without an extra click.
+- Removed default entity prefill for new bboxes; newly created boxes now start with an empty entity value.
 - Fixed secure export corruption on affected PDFs by moving secure redaction mutation to a single PDFium document session (one open/save boundary) and applying only export-created redaction annotations.
 - Added rotation-aware export bounds/coordinate handling so rotated pages use correct device-space validation and overlay mapping.
 - Added immediate on-screen export status banner so real export failures are visible without hover/tooltips.

@@ -9,7 +9,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent
 } from "react";
-import { BBOX_ACTION_HOVER_HIDE_DELAY_MS, BBOX_LABEL_SEPARATOR } from "../../constants/bbox";
+import { BBOX_ACTION_HOVER_HIDE_DELAY_MS } from "../../constants/bbox";
 import { getAdaptiveBboxLabelSizing } from "../../utils/bboxLabelSizing";
 import { formatBboxDisplayLabel, getBboxDisplayLabelParts } from "../../utils/bboxGeometry";
 import { BboxActionCluster } from "../BboxActionCluster/BboxActionCluster";
@@ -38,6 +38,7 @@ function isEventFromEditor(target: EventTarget | null): boolean {
 function BboxItemComponent({
   bbox,
   displayRect,
+  actionClusterOffset,
   isSelected,
   isEditing,
   entityOptions,
@@ -86,6 +87,14 @@ function BboxItemComponent({
       lineHeight: `${sizing.lineHeight}`
     };
   }, [composedLabelText, displayRect.height, displayRect.width]);
+
+  const actionClusterStyle = useMemo<CSSProperties>(
+    () => ({
+      left: `${actionClusterOffset.x}px`,
+      top: `${actionClusterOffset.y}px`
+    }),
+    [actionClusterOffset.x, actionClusterOffset.y]
+  );
 
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -167,14 +176,8 @@ function BboxItemComponent({
     >
       {labelParts.entityLabel && (
         <span className={styles.label} style={labelStyle}>
-          <span className={styles.labelContent}>
-            <span className={styles.labelEntity}>{labelParts.entityLabel}</span>
-            {labelParts.instanceLabel && (
-              <>
-                <span className={styles.labelSeparator}>{BBOX_LABEL_SEPARATOR}</span>
-                <span className={styles.labelNumber}>{labelParts.instanceLabel}</span>
-              </>
-            )}
+          <span className={styles.labelContent} dir="rtl" lang="ar">
+            {composedLabelText}
           </span>
         </span>
       )}
@@ -183,6 +186,7 @@ function BboxItemComponent({
         <>
           <BboxActionCluster
             isVisible={shouldShowActions}
+            placementStyle={actionClusterStyle}
             onDelete={() => onDelete(bbox.id)}
             onDuplicate={() => onDuplicate(bbox.id)}
             onCopy={() => onCopy(bbox.id)}

@@ -15,6 +15,8 @@ export interface BboxOverlayLayerProps {
   onDeleteBbox: (bboxId: string) => void;
   onDuplicateBbox: (bboxId: string) => void;
   onCopyBbox: (bboxId: string) => void;
+  onPasteBbox: () => void;
+  canPasteBbox: boolean;
   onCreateBbox: (rect: PdfBboxRect) => void;
   onUpdateBboxRect: (bboxId: string, rect: PdfBboxRect) => void;
   onUpdateBboxEntityLabel: (bboxId: string, nextLabel: string) => void;

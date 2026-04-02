@@ -1,4 +1,4 @@
-import type { ComponentType } from "react";
+import type { ComponentType, CSSProperties } from "react";
 
 export type BboxActionId = "delete" | "duplicate" | "copy";
 
@@ -14,6 +14,7 @@ export interface BboxActionDefinition {
 
 export interface BboxActionClusterProps {
   isVisible: boolean;
+  placementStyle?: CSSProperties;
   onDelete: () => void;
   onDuplicate: () => void;
   onCopy: () => void;

@@ -49,6 +49,12 @@
   outline: none;
 }
 
+.comboboxInput {
+  direction: rtl;
+  text-align: right;
+  unicode-bidi: plaintext;
+}
+
 .comboboxInput:focus-visible,
 .numberInput:focus-visible {
   border-color: rgba(45, 212, 191, 0.7);
@@ -74,6 +80,7 @@
   background: rgba(8, 14, 20, 0.98);
   display: grid;
   gap: 3px;
+  direction: rtl;
 }
 
 .optionButton {
@@ -82,10 +89,11 @@
   border-radius: 6px;
   background: transparent;
   color: var(--text);
-  text-align: left;
+  text-align: right;
   padding: 5px 8px;
   font-size: 0.82rem;
   cursor: pointer;
+  unicode-bidi: plaintext;
 }
 
 .optionButton:hover {

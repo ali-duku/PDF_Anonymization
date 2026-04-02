@@ -247,8 +247,7 @@ export function getBboxDisplayLabelParts(
   entityLabel: string,
   instanceNumber: number | null
 ): BboxDisplayLabelParts {
-  const normalizedLabel = entityLabel.trim();
-  if (!normalizedLabel) {
+  if (entityLabel.trim().length === 0) {
     return {
       entityLabel: "",
       instanceLabel: null
@@ -257,13 +256,13 @@ export function getBboxDisplayLabelParts(
 
   if (instanceNumber === null) {
     return {
-      entityLabel: normalizedLabel,
+      entityLabel,
       instanceLabel: null
     };
   }
 
   return {
-    entityLabel: normalizedLabel,
+    entityLabel,
     instanceLabel: formatArabicIndicDigits(instanceNumber)
   };
 }

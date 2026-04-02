@@ -137,6 +137,7 @@ const ACTION_DEFINITIONS: readonly BboxActionDefinition[] = [
 
 function BboxActionClusterComponent({
   isVisible,
+  placementStyle,
   onDelete,
   onDuplicate,
   onCopy,
@@ -157,6 +158,7 @@ function BboxActionClusterComponent({
   return (
     <div
       className={`${styles.cluster} ${isVisible ? styles.visible : ""}`}
+      style={placementStyle}
       onPointerEnter={onPointerEnter}
       onPointerLeave={() => {
         setActiveTooltip(null);

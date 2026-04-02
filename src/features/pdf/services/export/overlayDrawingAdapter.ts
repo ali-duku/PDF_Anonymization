@@ -15,10 +15,6 @@ import {
 } from "./coordinateConversion";
 import { PdfExportError, PdfExportErrorCode } from "./exportErrors";
 import { markAllBboxesSkipped, splitBboxesByPageBounds } from "./exportBboxValidation";
-import {
-  embedExportLabelFonts,
-  type ExportLabelFonts,
-} from "./exportLabelFonts";
 import { drawExportLabelText } from "./exportLabelTextRenderer";
 import type { PageRedactionPlan } from "./redactionPlanBuilder";
 
@@ -69,11 +65,11 @@ async function canOpenPdfBytes(pdfBytes: Uint8Array): Promise<boolean> {
 }
 
 async function drawBboxOverlay(
+  outputDocument: PDFDocument,
   page: PDFPage,
   pageSize: PdfPageSize,
   pageQuarterTurns: number,
-  bbox: PageRedactionPlan["bboxes"][0],
-  fonts: ExportLabelFonts,
+  bbox: PageRedactionPlan["bboxes"][0]
 ): Promise<void> {
   const sourceRect = {
     x: bbox.x,
@@ -111,7 +107,8 @@ async function drawBboxOverlay(
     borderWidth,
   });
 
-  drawExportLabelText({
+  await drawExportLabelText({
+    document: outputDocument,
     page,
     sourceRect,
     pageSize,
@@ -120,8 +117,7 @@ async function drawBboxOverlay(
     bbox: {
       entityLabel: bbox.entityLabel,
       instanceNumber: bbox.instanceNumber,
-    },
-    fonts,
+    }
   });
 }
 
@@ -132,7 +128,6 @@ export async function drawPdfExportOverlays(
   const outputDocument = await PDFDocument.load(sourcePdfBytes, {
     ignoreEncryption: true,
   });
-  const fonts = await embedExportLabelFonts(outputDocument);
   const skippedBboxes: PdfExportSkippedBbox[] = [];
 
   for (const plan of pagePlan) {
@@ -157,7 +152,7 @@ export async function drawPdfExportOverlays(
     skippedBboxes.push(...pageSkippedBboxes);
 
     for (const bbox of validBboxes) {
-      await drawBboxOverlay(page, pageSize, pageQuarterTurns, bbox, fonts);
+      await drawBboxOverlay(outputDocument, page, pageSize, pageQuarterTurns, bbox);
     }
   }
 

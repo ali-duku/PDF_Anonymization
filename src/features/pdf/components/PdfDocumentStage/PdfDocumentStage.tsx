@@ -2,25 +2,13 @@ import { memo, useEffect, useMemo } from "react";
 import { ToolbarIconButton } from "../../../../components/general/ToolbarIconButton/ToolbarIconButton";
 import { usePdfBboxes } from "../../hooks/usePdfBboxes";
 import { usePdfExport } from "../../hooks/usePdfExport";
+import { usePdfSessionKeyboardShortcuts } from "../../hooks/usePdfSessionKeyboardShortcuts";
 import { BboxOverlayLayer } from "../BboxOverlayLayer/BboxOverlayLayer";
 import { PdfSourceControls } from "../PdfSourceControls/PdfSourceControls";
 import { RestoreSessionPrompt } from "../RestoreSessionPrompt/RestoreSessionPrompt";
 import { ViewerSaveStatus } from "../ViewerSaveStatus/ViewerSaveStatus";
 import styles from "./PdfDocumentStage.module.css";
 import type { PdfDocumentStageProps } from "./PdfDocumentStage.types";
-
-function isEditableTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) {
-    return false;
-  }
-
-  if (target.isContentEditable) {
-    return true;
-  }
-
-  const tagName = target.tagName.toLowerCase();
-  return tagName === "input" || tagName === "textarea" || tagName === "select";
-}
 
 function PdfDocumentStageComponent({
   hasPdf,
@@ -87,37 +75,13 @@ function PdfDocumentStageComponent({
     onExportSuccess: bboxState.markExported
   });
 
-  useEffect(() => {
-    const handleKeydown = (event: KeyboardEvent) => {
-      if (!hasPdf || isEditableTarget(event.target)) {
-        return;
-      }
-
-      const key = event.key.toLowerCase();
-      const hasControlModifier = event.metaKey || event.ctrlKey;
-      if (!hasControlModifier) {
-        return;
-      }
-
-      const shouldUndo = key === "z" && !event.shiftKey;
-      const shouldRedo = key === "y" || (key === "z" && event.shiftKey);
-
-      if (shouldUndo && bboxState.canUndo) {
-        event.preventDefault();
-        bboxState.undo();
-      }
-
-      if (shouldRedo && bboxState.canRedo) {
-        event.preventDefault();
-        bboxState.redo();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeydown);
-    return () => {
-      window.removeEventListener("keydown", handleKeydown);
-    };
-  }, [bboxState, hasPdf]);
+  usePdfSessionKeyboardShortcuts({
+    isEnabled: hasPdf,
+    canUndo: bboxState.canUndo,
+    canRedo: bboxState.canRedo,
+    onUndo: bboxState.undo,
+    onRedo: bboxState.redo
+  });
 
   const exportController = useMemo(
     () => ({
@@ -300,6 +264,8 @@ function PdfDocumentStageComponent({
               onDeleteBbox={bboxState.deleteBbox}
               onDuplicateBbox={bboxState.duplicateBbox}
               onCopyBbox={bboxState.copyBbox}
+              onPasteBbox={bboxState.pasteClipboardToCurrentPage}
+              canPasteBbox={bboxState.canPaste}
               onCreateBbox={bboxState.createBbox}
               onUpdateBboxRect={bboxState.updateBboxRect}
               onUpdateBboxEntityLabel={bboxState.updateBboxEntityLabel}

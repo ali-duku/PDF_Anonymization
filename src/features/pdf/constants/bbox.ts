@@ -19,7 +19,8 @@ export const BBOX_ACTION_BUTTON_SIZE = 24;
 export const BBOX_ACTION_ICON_SIZE = 15;
 export const BBOX_ACTION_CLUSTER_GAP = 6;
 export const BBOX_ACTION_CLUSTER_OFFSET_X = 4;
-export const BBOX_ACTION_CLUSTER_OFFSET_Y = 4;
+export const BBOX_ACTION_CLUSTER_ACTION_COUNT = 3;
+export const BBOX_ACTION_CLUSTER_SAFE_EDGE_INSET = 2;
 export const BBOX_ACTION_CLUSTER_Z_INDEX = 2;
 export const BBOX_ACTION_GLASS_BLUR = 7;
 export const BBOX_ACTION_HOVER_LIFT = 1;
@@ -85,4 +86,3 @@ export const DEFAULT_ARABIC_ENTITY_LABELS = [
   "رقم الحساب البنكي للمدّعي",
 ] as const;
 
-export const DEFAULT_BBOX_ENTITY_LABEL = DEFAULT_ARABIC_ENTITY_LABELS[0];

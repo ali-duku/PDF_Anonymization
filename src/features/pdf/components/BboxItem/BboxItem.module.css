@@ -49,33 +49,11 @@
   max-width: 100%;
   max-height: 100%;
   min-width: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
+  display: inline-block;
   white-space: nowrap;
   overflow: hidden;
-}
-
-.labelEntity {
   direction: rtl;
-  unicode-bidi: isolate;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: clip;
-  white-space: nowrap;
-}
-
-.labelNumber {
-  direction: rtl;
-  unicode-bidi: isolate;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.labelSeparator {
-  white-space: pre;
-  flex-shrink: 0;
+  unicode-bidi: plaintext;
 }
 
 .resizeHandle {

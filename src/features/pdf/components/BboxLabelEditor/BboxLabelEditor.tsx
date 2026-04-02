@@ -5,6 +5,7 @@ import {
   normalizeArabicDigitsToLatin,
   parsePositiveIntegerFromArabicInput
 } from "../../utils/arabicNumerals";
+import { buildEntityComboboxOptions, dedupeEntityOptions } from "../../utils/bboxEntityOptions";
 import styles from "./BboxLabelEditor.module.css";
 import type { BboxLabelEditorProps } from "./BboxLabelEditor.types";
 
@@ -30,13 +31,7 @@ function BboxLabelEditorComponent({
   const listboxId = useId();
 
   const normalizedOptions = useMemo(() => {
-    const deduped: string[] = [];
-    for (const option of options) {
-      if (!deduped.includes(option)) {
-        deduped.push(option);
-      }
-    }
-    return deduped;
+    return dedupeEntityOptions(options);
   }, [options]);
 
   useEffect(() => {
@@ -53,14 +48,11 @@ function BboxLabelEditorComponent({
   }, []);
 
   const filteredOptions = useMemo(() => {
-    const query = draftEntityLabel.trim();
-    if (!query) {
-      return normalizedOptions.slice(0, BBOX_COMBOBOX_MAX_OPTIONS);
-    }
-
-    return normalizedOptions
-      .filter((option) => option.includes(query))
-      .slice(0, BBOX_COMBOBOX_MAX_OPTIONS);
+    return buildEntityComboboxOptions({
+      query: draftEntityLabel,
+      options: normalizedOptions,
+      maxOptions: BBOX_COMBOBOX_MAX_OPTIONS
+    });
   }, [draftEntityLabel, normalizedOptions]);
 
   useEffect(() => {
@@ -73,16 +65,14 @@ function BboxLabelEditorComponent({
   }, [filteredOptions.length]);
 
   const commitCurrentValueAndClose = useCallback(() => {
-    const trimmedLabel = draftEntityLabel.trim();
-    const fallbackLabel = trimmedLabel || entityLabel.trim() || normalizedOptions[0] || "";
+    onEntityLabelChange(draftEntityLabel);
 
-    if (fallbackLabel) {
-      onEntityLabelChange(fallbackLabel);
-      onRegisterCustomOption(fallbackLabel);
+    if (draftEntityLabel.trim().length > 0) {
+      onRegisterCustomOption(draftEntityLabel);
     }
 
     onClose();
-  }, [draftEntityLabel, entityLabel, normalizedOptions, onClose, onEntityLabelChange, onRegisterCustomOption]);
+  }, [draftEntityLabel, onClose, onEntityLabelChange, onRegisterCustomOption]);
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
@@ -149,6 +139,8 @@ function BboxLabelEditorComponent({
             aria-activedescendant={
               showDropdown ? `${listboxId}-option-${activeOptionIndex}` : undefined
             }
+            dir="rtl"
+            lang="ar"
             value={draftEntityLabel}
             onFocus={() => {
               setIsOptionsOpen(true);
@@ -196,7 +188,7 @@ function BboxLabelEditorComponent({
           />
 
           {showDropdown && (
-            <ul id={listboxId} role="listbox" className={styles.optionsList}>
+            <ul id={listboxId} role="listbox" className={styles.optionsList} dir="rtl" lang="ar">
               {filteredOptions.map((option, index) => {
                 const isActive = index === activeOptionIndex;
                 return (
@@ -207,6 +199,8 @@ function BboxLabelEditorComponent({
                       role="option"
                       aria-selected={isActive}
                       className={`${styles.optionButton} ${isActive ? styles.optionButtonActive : ""}`}
+                      dir="rtl"
+                      lang="ar"
                       onMouseDown={(event) => {
                         event.preventDefault();
                         handleOptionPick(option);

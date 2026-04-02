@@ -1,11 +1,7 @@
 .cluster {
   position: absolute;
+  left: 0;
   top: 0;
-  right: 0;
-  transform: translate(
-    calc(100% + var(--bbox-action-cluster-offset-x)),
-    calc(-100% - var(--bbox-action-cluster-offset-y))
-  );
   display: inline-flex;
   align-items: center;
   gap: var(--bbox-action-cluster-gap);

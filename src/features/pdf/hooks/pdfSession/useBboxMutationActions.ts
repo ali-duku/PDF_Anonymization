@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { BBOX_MIN_SIZE, DEFAULT_ARABIC_ENTITY_LABELS, DEFAULT_BBOX_ENTITY_LABEL } from "../../constants/bbox";
+import { BBOX_MIN_SIZE, DEFAULT_ARABIC_ENTITY_LABELS } from "../../constants/bbox";
 import type {
   BboxClipboardSnapshot,
   PdfBbox,
@@ -90,7 +90,7 @@ export function useBboxMutationActions({
         y: nextRect.y,
         width: nextRect.width,
         height: nextRect.height,
-        entityLabel: DEFAULT_BBOX_ENTITY_LABEL,
+        entityLabel: "",
         instanceNumber: null
       };
 
@@ -99,7 +99,7 @@ export function useBboxMutationActions({
         customEntityLabels: present.customEntityLabels
       }));
       setSelectedBboxId(nextId);
-      setEditingBboxId(null);
+      setEditingBboxId(nextId);
     },
     [currentPage, hasActiveSession, nextBboxId, pageSize, runMutation, setEditingBboxId, setSelectedBboxId]
   );
@@ -307,22 +307,21 @@ export function useBboxMutationActions({
 
   const registerCustomEntityLabel = useCallback(
     (label: string) => {
-      const normalizedLabel = label.trim();
-      if (!normalizedLabel) {
+      if (label.trim().length === 0) {
         return;
       }
 
       runMutation((present) => {
         if (
-          present.customEntityLabels.includes(normalizedLabel) ||
-          (DEFAULT_ARABIC_ENTITY_LABELS as readonly string[]).includes(normalizedLabel)
+          present.customEntityLabels.includes(label) ||
+          (DEFAULT_ARABIC_ENTITY_LABELS as readonly string[]).includes(label)
         ) {
           return null;
         }
 
         return {
           bboxes: present.bboxes,
-          customEntityLabels: [...present.customEntityLabels, normalizedLabel]
+          customEntityLabels: [...present.customEntityLabels, label]
         };
       });
     },

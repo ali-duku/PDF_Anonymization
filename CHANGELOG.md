@@ -1,25 +1,42 @@
 # Changelog
 
-## [Unreleased] - 2026-03-30
+## [Unreleased] - 2026-04-02
 
-- Fixed bbox action-cluster placement near page/viewer edges so action icons stay fully visible without top-edge clipping while remaining attached to bbox top alignment.
-- Added viewer keyboard shortcuts for bbox clipboard actions: `Ctrl/Cmd+C` copies the selected bbox and `Ctrl/Cmd+V` pastes on the current page using existing paste safety/clamping rules.
-- Updated entity combobox option building so the exact typed value is always shown as a first-class selectable option when it is distinct from existing labels.
-- Fixed viewer shortcut reliability by moving bbox keyboard handling to a centralized window-level hook with input-focus safety guards.
-- New drag-created bboxes now open the inline editor immediately so entity details can be entered without an extra click.
-- Removed default entity prefill for new bboxes; newly created boxes now start with an empty entity value.
-- Fixed secure export corruption on affected PDFs by moving secure redaction mutation to a single PDFium document session (one open/save boundary) and applying only export-created redaction annotations.
-- Added rotation-aware export bounds/coordinate handling so rotated pages use correct device-space validation and overlay mapping.
-- Added immediate on-screen export status banner so real export failures are visible without hover/tooltips.
-- Export now validates bbox geometry/page assignment per bbox and skips invalid entries (including out-of-bounds bboxes) instead of aborting the full export.
-- Added non-blocking export warning feedback when one or more invalid bboxes are skipped.
+- No unreleased entries yet.
+
+## [0.5.5] - 2026-04-02
+
+- Added viewer keyboard shortcuts so `Ctrl/Cmd+C` copies the selected bbox and `Ctrl/Cmd+V` pastes it onto the current page using the same safe paste behavior as the toolbar action.
+- Fixed viewer shortcut reliability by moving bbox keyboard handling to a centralized window-level hook with strict input-focus guards.
+- New drag-created bboxes now open the inline editor immediately so labeling starts without an extra click.
+- Removed default entity prefill for new bboxes so new entries start empty until the user explicitly types or selects an entity.
+- Improved bbox action icon placement near top/page/viewer bounds so controls remain fully visible and cleanly attached to the bbox edge.
+- Updated entity combobox suggestions so the exact typed value always appears as its own selectable option when it differs from existing labels.
+
+## [0.5.4] - 2026-04-01
+
+- Upgraded exported bbox labels to embedded vector text for sharper print/PDF fidelity instead of rasterized label glyph images.
+- Added export-time Arabic/Latin font embedding with script-aware run rendering so Arabic labels, Arabic-Indic numerals, and mixed-script text remain high-quality and readable.
+
+## [0.5.3] - 2026-04-01
+
+- Fixed secure export corruption on affected PDFs by applying only export-created redaction annotations instead of applying all page redactions.
+- Stabilized secure export mutation by processing all redactions in a single PDFium document session and saving once per export.
+- Added rotation-aware export bounds and coordinate mapping so redaction and overlay placement stay valid on rotated pages.
 - Added export visual-integrity checks after secure redaction and a high-fidelity raster fallback path for PDFs where PDFium mutation output is visually corrupted.
-- Refactored bbox label fitting around a canonical PDF-space content-box layout shared by preview sizing and export rendering.
-- Fixed exported bbox labels so text stays inside a deterministic all-sides safe inset and no longer relies on clip-path masking.
+
+## [0.5.2] - 2026-04-01
+
+- Updated export resilience so invalid/out-of-bounds bboxes are skipped per-item instead of aborting the whole PDF export.
+- Export failures now surface immediately in an on-screen status banner while successful exports with skipped invalid bboxes remain non-blocking warnings.
+- Added non-blocking export warning feedback when one or more invalid bboxes are skipped.
+
+## [0.5.1] - 2026-03-30
+
+- Refined export label fitting with shared PDF-space layout rules so bbox text keeps a safe inset and avoids clipping against borders.
+- Improved export parity so bbox border weight and label text sizing more closely match the in-app preview while preserving no-clipping safety.
+- Added glyph-metric-aware export label fitting and baseline centering so exported text uses available safe space better without clipping.
 - Made export label fitting resolution-independent by computing font size from bbox/page units first and using canvas scale only for raster fidelity.
-- Fixed export border-weight drift by mapping preview CSS-pixel border tokens to canonical PDF units before drawing export overlays.
-- Improved export label text-size parity with preview by applying the same token-unit conversion to export label padding/safe inset/font sizing while preserving no-clipping safety.
-- Refined preview/export text fitting with glyph-metric-aware sizing and baseline centering so export uses safe space better without clipping.
 - Added explicit PDF stroke visual-weight compensation to align exported bbox border appearance with preview.
 
 ## [0.5.0] - 2026-03-28

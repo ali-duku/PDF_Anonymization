@@ -6,6 +6,11 @@ import {
 } from "../../constants/bbox";
 import { EXPORT_LABEL_FONT_URLS, EXPORT_LABEL_TEXT_COLOR_HEX } from "../../constants/exportTypography";
 import type { PdfBboxRect, PdfPageSize } from "../../types/bbox";
+import {
+  bboxTextRotationQuarterTurnsToDegrees,
+  getBboxTextFitRect,
+  normalizeBboxTextRotationQuarterTurns
+} from "../../utils/bboxTextRotation";
 import { formatBboxDisplayLabel } from "../../utils/bboxGeometry";
 import { buildBboxLabelLayoutSpec } from "../../utils/bboxLabelLayout";
 import { toPdfPagePointFromDevicePoint } from "./coordinateConversion";
@@ -21,6 +26,7 @@ interface DrawExportLabelTextInput {
   bbox: {
     entityLabel: string;
     instanceNumber: number | null;
+    textRotationQuarterTurns: number;
   };
 }
 
@@ -34,6 +40,8 @@ interface CanvasLabelLayout {
   fontSize: number;
   centerX: number;
   baselineY: number;
+  textFrameWidth: number;
+  textFrameHeight: number;
 }
 
 const EXPORT_LABEL_CANVAS_SCALE = 4;
@@ -143,14 +151,24 @@ function measureCanvasTextMetrics(
 function resolveCanvasLabelLayout(
   labelText: string,
   sourceRect: PdfBboxRect,
-  borderWidth: number
+  borderWidth: number,
+  textRotationQuarterTurns: number
 ): CanvasLabelLayout {
   const context = getTextMeasureContext();
   const measuredUnitMetrics = measureCanvasTextMetrics(context, labelText, 1);
+  const textFrameRect = getBboxTextFitRect(
+    {
+      x: 0,
+      y: 0,
+      width: sourceRect.width,
+      height: sourceRect.height
+    },
+    textRotationQuarterTurns
+  );
 
   const spec = buildBboxLabelLayoutSpec({
     labelText,
-    rect: { x: 0, y: 0, width: sourceRect.width, height: sourceRect.height },
+    rect: textFrameRect,
     measuredWidthPerFontUnit: measuredUnitMetrics.width,
     measureTextMetrics: (fontSize, text) => measureCanvasTextMetrics(context, text, fontSize),
     borderWidth
@@ -159,7 +177,9 @@ function resolveCanvasLabelLayout(
   return {
     fontSize: Math.max(1, spec.fontSize),
     centerX: spec.centerX,
-    baselineY: spec.baselineY
+    baselineY: spec.baselineY,
+    textFrameWidth: textFrameRect.width,
+    textFrameHeight: textFrameRect.height
   };
 }
 
@@ -189,11 +209,12 @@ async function canvasToPngBytes(canvas: HTMLCanvasElement): Promise<Uint8Array> 
 async function renderLabelPngBytes(
   labelText: string,
   sourceRect: PdfBboxRect,
-  borderWidth: number
+  borderWidth: number,
+  textRotationQuarterTurns: number
 ): Promise<Uint8Array> {
   await ensureCanvasFontsLoaded();
 
-  const layout = resolveCanvasLabelLayout(labelText, sourceRect, borderWidth);
+  const layout = resolveCanvasLabelLayout(labelText, sourceRect, borderWidth, textRotationQuarterTurns);
   const scale = EXPORT_LABEL_CANVAS_SCALE;
   const canvas = createLabelCanvas(
     Math.ceil(sourceRect.width * scale),
@@ -212,7 +233,17 @@ async function renderLabelPngBytes(
   context.direction = "rtl";
   context.textAlign = "center";
   context.textBaseline = "alphabetic";
-  context.fillText(labelText, layout.centerX, layout.baselineY);
+  const textRotationRadians =
+    (bboxTextRotationQuarterTurnsToDegrees(textRotationQuarterTurns) * Math.PI) / 180;
+  const textAnchorX = layout.centerX - layout.textFrameWidth * 0.5;
+  const textBaselineY = layout.baselineY - layout.textFrameHeight * 0.5;
+  context.save();
+  context.translate(sourceRect.width * 0.5, sourceRect.height * 0.5);
+  if (textRotationRadians !== 0) {
+    context.rotate(textRotationRadians);
+  }
+  context.fillText(labelText, textAnchorX, textBaselineY);
+  context.restore();
 
   return canvasToPngBytes(canvas);
 }
@@ -231,7 +262,8 @@ export async function drawExportLabelText({
     return;
   }
 
-  const pngBytes = await renderLabelPngBytes(labelText, sourceRect, borderWidth);
+  const textRotationQuarterTurns = normalizeBboxTextRotationQuarterTurns(bbox.textRotationQuarterTurns);
+  const pngBytes = await renderLabelPngBytes(labelText, sourceRect, borderWidth, textRotationQuarterTurns);
   const image = await document.embedPng(pngBytes);
 
   const textCoordinates: TextCoordinateContext = {

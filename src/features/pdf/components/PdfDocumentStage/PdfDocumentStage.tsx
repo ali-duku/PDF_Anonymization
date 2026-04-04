@@ -1,15 +1,18 @@
-import { memo, useEffect, useMemo } from "react";
-import { ToolbarIconButton } from "../../../../components/general/ToolbarIconButton/ToolbarIconButton";
+import { memo, useEffect, useMemo, type CSSProperties } from "react";
 import { usePdfBboxes } from "../../hooks/usePdfBboxes";
 import { usePdfExport } from "../../hooks/usePdfExport";
 import { usePdfSessionKeyboardShortcuts } from "../../hooks/usePdfSessionKeyboardShortcuts";
 import { BboxOverlayLayer } from "../BboxOverlayLayer/BboxOverlayLayer";
-import { PdfSourceControls } from "../PdfSourceControls/PdfSourceControls";
+import { PdfViewerToolbar } from "../PdfViewerToolbar/PdfViewerToolbar";
 import { RestoreSessionPrompt } from "../RestoreSessionPrompt/RestoreSessionPrompt";
 import { ViewerSaveStatus } from "../ViewerSaveStatus/ViewerSaveStatus";
+import {
+  getPageCanvasRotationTransform,
+  getRotatedPageViewSize,
+  pageViewQuarterTurnsToDegrees
+} from "../../utils/pageViewTransform";
 import styles from "./PdfDocumentStage.module.css";
 import type { PdfDocumentStageProps } from "./PdfDocumentStage.types";
-
 function PdfDocumentStageComponent({
   hasPdf,
   loadStatus,
@@ -53,28 +56,41 @@ function PdfDocumentStageComponent({
     }),
     [pageBaseHeight, pageBaseWidth]
   );
-
-  const displayPageSize = useMemo(
+  const displayPageBaseSize = useMemo(
     () => ({
       width: pageWidth,
       height: pageHeight
     }),
     [pageHeight, pageWidth]
   );
-
   const bboxState = usePdfBboxes({
     documentMeta,
     currentPage,
     pageSize
   });
-
+  const currentPageRotationQuarterTurns = bboxState.currentPageViewRotationQuarterTurns;
+  const displayPageSize = useMemo(
+    () => getRotatedPageViewSize(displayPageBaseSize, currentPageRotationQuarterTurns),
+    [currentPageRotationQuarterTurns, displayPageBaseSize]
+  );
+  const currentPageRotationDegrees = useMemo(
+    () => pageViewQuarterTurnsToDegrees(currentPageRotationQuarterTurns),
+    [currentPageRotationQuarterTurns]
+  );
+  const pageCanvasStyle = useMemo<CSSProperties | undefined>(() => {
+    if (!hasPdf || pageWidth <= 0 || pageHeight <= 0) {
+      return undefined;
+    }
+    return {
+      transform: getPageCanvasRotationTransform(displayPageBaseSize, currentPageRotationQuarterTurns)
+    };
+  }, [currentPageRotationQuarterTurns, displayPageBaseSize, hasPdf, pageHeight, pageWidth]);
   const exportState = usePdfExport({
     sourcePdfBlob,
     sourceFileName,
     bboxes: bboxState.bboxes,
     onExportSuccess: bboxState.markExported
   });
-
   usePdfSessionKeyboardShortcuts({
     isEnabled: hasPdf,
     canUndo: bboxState.canUndo,
@@ -82,7 +98,6 @@ function PdfDocumentStageComponent({
     onUndo: bboxState.undo,
     onRedo: bboxState.redo
   });
-
   const exportController = useMemo(
     () => ({
       canExport: exportState.canExport && hasPdf,
@@ -100,7 +115,6 @@ function PdfDocumentStageComponent({
       hasPdf
     ]
   );
-
   const sessionController = useMemo(
     () => ({
       canSave: bboxState.canSave && hasPdf,
@@ -114,118 +128,45 @@ function PdfDocumentStageComponent({
     }),
     [bboxState, hasPdf]
   );
-
   useEffect(() => {
     onExportControllerChange?.(exportController);
   }, [exportController, onExportControllerChange]);
-
   useEffect(() => {
     onSessionControllerChange?.(sessionController);
   }, [onSessionControllerChange, sessionController]);
-
   const showFooterRow = Boolean(statusText) || hasPdf;
-
   return (
     <section className={styles.stagePanel} aria-label="PDF viewer stage">
-      <header className={styles.toolbarRow}>
-        <h2 className={styles.viewerTitle}>Viewer</h2>
-
-        <div className={styles.toolbarControls}>
-          <PdfSourceControls
-            retrievalInputValue={retrievalInputValue}
-            retrievalStatus={retrievalStatus}
-            canRetryRetrieval={canRetryRetrieval}
-            hasPdf={hasPdf}
-            manualFileInputRef={manualFileInputRef}
-            onRetrievalInputChange={onRetrievalInputChange}
-            onRetrieveDocument={onRetrieveDocument}
-            onResetWorkspace={onResetWorkspace}
-            onRetryRetrieval={onRetryRetrieval}
-            onManualFilePick={onManualFilePick}
-            onManualFileChange={onManualFileChange}
-          />
-
-          <div className={styles.toolbarGroup}>
-            <ToolbarIconButton
-              label="Previous page"
-              icon={"\u2190"}
-              onClick={() => onMovePage(-1)}
-              disabled={!hasPdf}
-            />
-
-            <label className={styles.inlineField} htmlFor="viewer-page-input">
-              Page
-            </label>
-            <input
-              id="viewer-page-input"
-              className={styles.pageInput}
-              type="number"
-              min={1}
-              max={Math.max(1, totalPages)}
-              value={currentPage}
-              onChange={(event) => onPageInput(Number(event.currentTarget.value))}
-              disabled={!hasPdf}
-            />
-
-            <span className={styles.metaText}>/ {totalPages || 0}</span>
-
-            <ToolbarIconButton
-              label="Next page"
-              icon={"\u2192"}
-              onClick={() => onMovePage(1)}
-              disabled={!hasPdf}
-            />
-          </div>
-
-          <div className={styles.toolbarGroup}>
-            <button type="button" className={styles.buttonSecondary} onClick={onZoomOut} disabled={!hasPdf}>
-              -
-            </button>
-            <span className={styles.metaText}>{Math.round(zoom * 100)}%</span>
-            <button type="button" className={styles.buttonSecondary} onClick={onZoomIn} disabled={!hasPdf}>
-              +
-            </button>
-            <button
-              type="button"
-              className={styles.buttonSecondary}
-              onClick={() => {
-                void onFitToWidth();
-              }}
-              disabled={!hasPdf}
-            >
-              Fit
-            </button>
-          </div>
-
-          <div className={styles.toolbarGroup}>
-            <ToolbarIconButton
-              label="Undo"
-              icon={"\u21b6"}
-              onClick={bboxState.undo}
-              disabled={!hasPdf || !bboxState.canUndo}
-            />
-            <ToolbarIconButton
-              label="Redo"
-              icon={"\u21b7"}
-              onClick={bboxState.redo}
-              disabled={!hasPdf || !bboxState.canRedo}
-            />
-          </div>
-
-          <div className={styles.toolbarGroup}>
-            <button
-              type="button"
-              className={styles.buttonSecondary}
-              onClick={bboxState.pasteClipboardToCurrentPage}
-              disabled={!hasPdf || !bboxState.canPaste}
-              title={bboxState.canPaste ? "Paste copied bbox on this page" : "Copy a bbox to enable paste"}
-            >
-              Paste
-            </button>
-          </div>
-        </div>
-      </header>
-
+      <PdfViewerToolbar
+        hasPdf={hasPdf}
+        retrievalInputValue={retrievalInputValue}
+        retrievalStatus={retrievalStatus}
+        canRetryRetrieval={canRetryRetrieval}
+        manualFileInputRef={manualFileInputRef}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        zoom={zoom}
+        currentPageRotationQuarterTurns={currentPageRotationQuarterTurns}
+        currentPageRotationDegrees={currentPageRotationDegrees}
+        canUndo={bboxState.canUndo}
+        canRedo={bboxState.canRedo}
+        canPaste={bboxState.canPaste}
+        onRetrievalInputChange={onRetrievalInputChange}
+        onRetrieveDocument={onRetrieveDocument}
+        onResetWorkspace={onResetWorkspace}
+        onRetryRetrieval={onRetryRetrieval}
+        onManualFilePick={onManualFilePick}
+        onManualFileChange={onManualFileChange}
+        onMovePage={onMovePage}
+        onPageInput={onPageInput}
+        onRotatePageView={bboxState.rotateCurrentPageViewClockwise}
+        onZoomOut={onZoomOut}
+        onZoomIn={onZoomIn}
+        onFitToWidth={onFitToWidth}
+        onUndo={bboxState.undo}
+        onRedo={bboxState.redo}
+        onPaste={bboxState.pasteClipboardToCurrentPage}
+      />
       <div
         ref={canvasContainerRef}
         className={`${styles.canvasShell} ${hasPdf ? styles.canvasShellActive : ""}`}
@@ -239,22 +180,23 @@ function PdfDocumentStageComponent({
           ref={pageStageRef}
           className={styles.pageStage}
           style={
-            pageWidth > 0 && pageHeight > 0
+            displayPageSize.width > 0 && displayPageSize.height > 0
               ? {
-                  width: `${pageWidth}px`,
-                  height: `${pageHeight}px`
+                  width: `${displayPageSize.width}px`,
+                  height: `${displayPageSize.height}px`
                 }
               : undefined
           }
         >
-          {hasPdf && <canvas ref={canvasRef} className={styles.pdfCanvas} />}
-
+          {hasPdf && <canvas ref={canvasRef} className={styles.pdfCanvas} style={pageCanvasStyle} />}
           {hasPdf && (
             <BboxOverlayLayer
               hasPdf={hasPdf}
               pageStageRef={pageStageRef}
               displayPageSize={displayPageSize}
+              displayPageBaseSize={displayPageBaseSize}
               pageSize={pageSize}
+              pageViewRotationQuarterTurns={currentPageRotationQuarterTurns}
               bboxes={bboxState.currentPageBboxes}
               selectedBboxId={bboxState.selectedBboxId}
               editingBboxId={bboxState.editingBboxId}
@@ -270,10 +212,10 @@ function PdfDocumentStageComponent({
               onUpdateBboxRect={bboxState.updateBboxRect}
               onUpdateBboxEntityLabel={bboxState.updateBboxEntityLabel}
               onUpdateBboxInstanceNumber={bboxState.updateBboxInstanceNumber}
+              onUpdateBboxTextRotation={bboxState.updateBboxTextRotation}
               onRegisterCustomEntityLabel={bboxState.registerCustomEntityLabel}
             />
           )}
-
           {!hasPdf && loadStatus !== "loading" && (
             <div className={styles.emptyView}>
               <h3>No PDF</h3>
@@ -281,7 +223,6 @@ function PdfDocumentStageComponent({
             </div>
           )}
         </div>
-
         <RestoreSessionPrompt
           isOpen={bboxState.restorePromptState.isOpen}
           fileName={bboxState.restorePromptState.fileName}
@@ -291,7 +232,6 @@ function PdfDocumentStageComponent({
           onSkip={bboxState.skipRestoreSession}
         />
       </div>
-
       {showFooterRow && (
         <footer className={styles.footerRow} aria-label="Viewer status">
           <p
@@ -315,5 +255,4 @@ function PdfDocumentStageComponent({
     </section>
   );
 }
-
 export const PdfDocumentStage = memo(PdfDocumentStageComponent);

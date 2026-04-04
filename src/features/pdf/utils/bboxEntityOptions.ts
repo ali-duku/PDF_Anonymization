@@ -1,3 +1,5 @@
+import { normalizePotentialMojibakeText } from "./textEncoding";
+
 interface BuildEntityComboboxOptionsArgs {
   query: string;
   options: readonly string[];
@@ -9,12 +11,13 @@ export function dedupeEntityOptions(options: readonly string[]): string[] {
   const deduped: string[] = [];
 
   for (const option of options) {
-    if (seen.has(option)) {
+    const normalizedOption = normalizePotentialMojibakeText(option);
+    if (seen.has(normalizedOption)) {
       continue;
     }
 
-    seen.add(option);
-    deduped.push(option);
+    seen.add(normalizedOption);
+    deduped.push(normalizedOption);
   }
 
   return deduped;
@@ -30,19 +33,20 @@ export function buildEntityComboboxOptions({
   }
 
   const dedupedOptions = dedupeEntityOptions(options);
-  const hasQuery = query.length > 0;
+  const normalizedQuery = normalizePotentialMojibakeText(query);
+  const hasQuery = normalizedQuery.length > 0;
 
   if (!hasQuery) {
     return dedupedOptions.slice(0, maxOptions);
   }
 
-  const matchingOptions = dedupedOptions.filter((option) => option.includes(query));
-  const hasExactMatch = matchingOptions.includes(query);
+  const matchingOptions = dedupedOptions.filter((option) => option.includes(normalizedQuery));
+  const hasExactMatch = matchingOptions.includes(normalizedQuery);
 
   // Keep the exact typed value as a first-class option unless it already exists as an exact match.
   const orderedOptions = hasExactMatch
-    ? [query, ...matchingOptions.filter((option) => option !== query)]
-    : [query, ...matchingOptions];
+    ? [normalizedQuery, ...matchingOptions.filter((option) => option !== normalizedQuery)]
+    : [normalizedQuery, ...matchingOptions];
 
   return orderedOptions.slice(0, maxOptions);
 }

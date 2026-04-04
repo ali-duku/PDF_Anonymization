@@ -1,8 +1,25 @@
-# Changelog
+﻿# Changelog
 
-## [Unreleased] - 2026-04-02
+## [Unreleased] - 2026-04-05
 
 - No unreleased entries yet.
+
+## [0.5.7] - 2026-04-05
+
+- Fixed rotation-related mojibake regressions by normalizing potentially corrupted UTF-8 text in bbox/session label state and by replacing toolbar glyph text with encoding-safe SVG icons.
+- Added per-bbox `Rotate text` action icon with explicit `0 / 90 / 180 / 270 deg` rotation cycling in the bbox action cluster.
+- Added stable bbox text rotation state (`textRotationQuarterTurns`) so text orientation stays fixed after creation unless explicitly changed.
+- Extended bbox text rotation through autosave/manual save/restore, undo/redo, and copy/duplicate/paste flows.
+- Updated export label rendering to respect each bbox's stored text angle while preserving original input page orientation and no-clipping label layout safety.
+- Split remaining oversized modules into focused units (`usePdfDocument.types`, `useBboxOverlayInteractions.types`, `redactionIntegrityMetrics`) to keep source files under the 300-line threshold.
+
+## [0.5.6] - 2026-04-05
+
+- Added a new viewer toolbar `Rotate page view` action that cycles the current page through `0 / 90 / 180 / 270 deg` as a viewer-only convenience mode.
+- Implemented canonical rotated-view coordinate mapping so bbox create/move/resize/select/delete/duplicate/copy/paste/edit interactions stay aligned and correct after page rotation.
+- Added per-page viewer rotation state with session persistence/restore so rotated page views return after reload without being treated as PDF content edits.
+- Kept export behavior unchanged: output page order/orientation stays aligned with the input PDF and viewer rotation is never baked into exported PDF orientation.
+- Refactored viewer/session modules into focused units (`PdfViewerToolbar`, `useSessionPersistence`, `useBboxOverlayInteractions`, shared page-view transform utilities) to keep oversized files below the 300-line threshold.
 
 ## [0.5.5] - 2026-04-02
 
@@ -66,7 +83,7 @@
 
 ## [0.4.1] - 2026-03-28
 
-- Replaced bbox delete `×` with a polished trash/bin action and added a compact per-bbox action cluster.
+- Replaced bbox delete icon text with a polished trash/bin action and added a compact per-bbox action cluster.
 - Added new bbox `Duplicate` and `Copy` actions with distinct icons and color treatments.
 - Added viewer-toolbar `Paste` to insert copied bboxes on the current page using exact-geometry paste with safe bounds clamping.
 - Implemented deterministic duplicate offset (`+12px, +12px`) with page-bound clamping for predictable in-bounds placement.
@@ -137,5 +154,7 @@
 - Introduced a single PDF workspace with retrieval-by-ID and local upload flows.
 - Added focused viewer controls (page navigation, zoom, fit).
 - Added an anonymization panel placeholder with disabled `Add Region` and `Export Anonymized PDF` actions.
+
+
 
 

@@ -1,14 +1,18 @@
 import { PERSISTED_HISTORY_LIMIT } from "../../constants/session";
 import type {
+  SessionViewState,
   PersistedSessionSnapshot,
   PdfSessionIdentity,
   SessionHistoryState,
   SessionPresentState
 } from "../../types/session";
+import { normalizePdfBboxState } from "../../utils/bboxState";
+import { normalizePotentialMojibakeText } from "../../utils/textEncoding";
 
 export interface SessionPersistenceStateInput {
   identity: PdfSessionIdentity;
   history: SessionHistoryState;
+  viewState: SessionViewState;
   lastAutosaveAt: number | null;
   lastManualSaveAt: number | null;
   autosavedRevision: number;
@@ -19,8 +23,8 @@ export interface SessionPersistenceStateInput {
 
 function clonePresentState(state: SessionPresentState): SessionPresentState {
   return {
-    bboxes: state.bboxes.map((bbox) => ({ ...bbox })),
-    customEntityLabels: [...state.customEntityLabels],
+    bboxes: state.bboxes.map((bbox) => normalizePdfBboxState({ ...bbox })),
+    customEntityLabels: state.customEntityLabels.map((label) => normalizePotentialMojibakeText(label)),
     revision: state.revision
   };
 }
@@ -31,6 +35,12 @@ function cloneHistoryState(history: SessionHistoryState): SessionHistoryState {
     present: clonePresentState(history.present),
     future: history.future.slice(0, PERSISTED_HISTORY_LIMIT).map(clonePresentState),
     lastMutationKey: null
+  };
+}
+
+export function clonePersistedViewState(viewState?: SessionViewState): SessionViewState {
+  return {
+    pageViewerRotations: { ...viewState?.pageViewerRotations }
   };
 }
 
@@ -48,7 +58,8 @@ export function buildPersistedSessionSnapshot(
       exportedRevision: input.exportedRevision,
       lastExportedAt: input.lastExportedAt
     },
-    history: cloneHistoryState(input.history)
+    history: cloneHistoryState(input.history),
+    viewState: clonePersistedViewState(input.viewState)
   };
 }
 

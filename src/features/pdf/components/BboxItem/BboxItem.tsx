@@ -12,6 +12,12 @@ import {
 import { BBOX_ACTION_HOVER_HIDE_DELAY_MS } from "../../constants/bbox";
 import { getAdaptiveBboxLabelSizing } from "../../utils/bboxLabelSizing";
 import { formatBboxDisplayLabel, getBboxDisplayLabelParts } from "../../utils/bboxGeometry";
+import {
+  bboxTextRotationQuarterTurnsToDegrees,
+  getNextBboxTextRotationQuarterTurns,
+  getBboxTextFitRect,
+  normalizeBboxTextRotationQuarterTurns
+} from "../../utils/bboxTextRotation";
 import { BboxActionCluster } from "../BboxActionCluster/BboxActionCluster";
 import { BboxLabelEditor } from "../BboxLabelEditor/BboxLabelEditor";
 import styles from "./BboxItem.module.css";
@@ -38,6 +44,7 @@ function isEventFromEditor(target: EventTarget | null): boolean {
 function BboxItemComponent({
   bbox,
   displayRect,
+  pageViewRotationQuarterTurns,
   actionClusterOffset,
   isSelected,
   isEditing,
@@ -48,6 +55,7 @@ function BboxItemComponent({
   onDelete,
   onDuplicate,
   onCopy,
+  onRotateText,
   onOpenEditor,
   onCloseEditor,
   onLabelChange,
@@ -79,14 +87,30 @@ function BboxItemComponent({
     () => formatBboxDisplayLabel(labelParts.entityLabel, bbox.instanceNumber),
     [bbox.instanceNumber, labelParts.entityLabel]
   );
+  const textRotationQuarterTurns = normalizeBboxTextRotationQuarterTurns(bbox.textRotationQuarterTurns);
+  const displayTextRotationQuarterTurns = normalizeBboxTextRotationQuarterTurns(
+    textRotationQuarterTurns + pageViewRotationQuarterTurns
+  );
+  const textRotationDegrees = bboxTextRotationQuarterTurnsToDegrees(displayTextRotationQuarterTurns);
+  const labelFitRect = useMemo(
+    () => getBboxTextFitRect(displayRect, displayTextRotationQuarterTurns),
+    [displayRect, displayTextRotationQuarterTurns]
+  );
 
   const labelStyle = useMemo<CSSProperties>(() => {
-    const sizing = getAdaptiveBboxLabelSizing(composedLabelText, displayRect);
+    const sizing = getAdaptiveBboxLabelSizing(composedLabelText, labelFitRect);
     return {
       fontSize: `${sizing.fontSize}px`,
       lineHeight: `${sizing.lineHeight}`
     };
-  }, [composedLabelText, displayRect.height, displayRect.width]);
+  }, [composedLabelText, labelFitRect]);
+
+  const labelContentWrapStyle = useMemo<CSSProperties>(
+    () => ({
+      transform: `rotate(${textRotationDegrees}deg)`
+    }),
+    [textRotationDegrees]
+  );
 
   const actionClusterStyle = useMemo<CSSProperties>(
     () => ({
@@ -176,8 +200,10 @@ function BboxItemComponent({
     >
       {labelParts.entityLabel && (
         <span className={styles.label} style={labelStyle}>
-          <span className={styles.labelContent} dir="rtl" lang="ar">
-            {composedLabelText}
+          <span className={styles.labelContentWrap} style={labelContentWrapStyle}>
+            <span className={styles.labelContent} dir="rtl" lang="ar">
+              {composedLabelText}
+            </span>
           </span>
         </span>
       )}
@@ -190,6 +216,9 @@ function BboxItemComponent({
             onDelete={() => onDelete(bbox.id)}
             onDuplicate={() => onDuplicate(bbox.id)}
             onCopy={() => onCopy(bbox.id)}
+            onRotateText={() =>
+              onRotateText(bbox.id, getNextBboxTextRotationQuarterTurns(textRotationQuarterTurns))
+            }
             onPointerEnter={showActions}
             onPointerLeave={scheduleHideActions}
           />

@@ -5,7 +5,9 @@ export interface BboxOverlayLayerProps {
   hasPdf: boolean;
   pageStageRef: RefObject<HTMLDivElement>;
   displayPageSize: PdfPageSize;
+  displayPageBaseSize: PdfPageSize;
   pageSize: PdfPageSize;
+  pageViewRotationQuarterTurns: number;
   bboxes: PdfBbox[];
   selectedBboxId: string | null;
   editingBboxId: string | null;
@@ -21,5 +23,6 @@ export interface BboxOverlayLayerProps {
   onUpdateBboxRect: (bboxId: string, rect: PdfBboxRect) => void;
   onUpdateBboxEntityLabel: (bboxId: string, nextLabel: string) => void;
   onUpdateBboxInstanceNumber: (bboxId: string, nextNumber: number | null) => void;
+  onUpdateBboxTextRotation: (bboxId: string, nextRotationQuarterTurns: number) => void;
   onRegisterCustomEntityLabel: (label: string) => void;
 }

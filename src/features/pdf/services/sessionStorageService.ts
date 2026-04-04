@@ -7,7 +7,8 @@ import type {
   PersistedSessionSnapshot,
   PersistedSessionStore,
   SessionHistoryState,
-  SessionPresentState
+  SessionPresentState,
+  SessionViewState
 } from "../types/session";
 
 function isFiniteNumber(value: unknown): value is number {
@@ -38,6 +39,19 @@ function isHistoryState(value: unknown): value is SessionHistoryState {
   );
 }
 
+function isViewState(value: unknown): value is SessionViewState {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as SessionViewState;
+  if (!candidate.pageViewerRotations || typeof candidate.pageViewerRotations !== "object") {
+    return false;
+  }
+
+  return Object.values(candidate.pageViewerRotations).every((rotation) => isFiniteNumber(rotation));
+}
+
 function isPersistedSessionSnapshot(value: unknown): value is PersistedSessionSnapshot {
   if (!value || typeof value !== "object") {
     return false;
@@ -52,7 +66,8 @@ function isPersistedSessionSnapshot(value: unknown): value is PersistedSessionSn
       typeof candidate.meta.identity.key === "string" &&
       typeof candidate.meta.identity.fileName === "string" &&
       isFiniteNumber(candidate.meta.updatedAt) &&
-      isHistoryState(candidate.history)
+      isHistoryState(candidate.history) &&
+      (!candidate.viewState || isViewState(candidate.viewState))
   );
 }
 

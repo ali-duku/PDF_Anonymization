@@ -9,7 +9,7 @@ Use semantic versioning and keep versions aligned in:
 - `src/appMeta.ts`
 - `CHANGELOG.md`
 
-Current baseline: `0.5.0` (2026-03-28).
+Current baseline: `0.5.7` (2026-04-05).
 
 ## Definition of Done
 
@@ -36,7 +36,12 @@ UI baseline in v0.5.0:
 
 - Top header remains a compact single row and contains Save, Export PDF, and What&apos;s New actions.
 - Viewer toolbar remains a compact single row and contains loading/source controls, page controls, zoom actions, undo/redo actions, and a dedicated Paste group (bbox creation is direct drag on the page).
+- Viewer toolbar includes a compact `Rotate page view` action that rotates only the current page view (0/90/180/270) for interaction convenience.
+- Bbox action icons include explicit per-bbox `Rotate text` control (0/90/180/270); this state belongs to bbox data and must not be auto-derived from page-view rotation.
 - Bboxes are managed inside page-coordinate bounds with resize/move/delete/duplicate/copy/edit interactions in the viewer stage.
+- Rotated viewer interaction must keep bbox hit testing, creation, move, resize, and overlay alignment correct via shared coordinate transforms.
+- Viewer rotation state is view/session metadata only and must never mutate source PDF bytes or exported output orientation.
+- Export must preserve original page orientation while honoring each bbox's stored text angle.
 - Copied bboxes can be pasted from the viewer toolbar onto the current page; duplicate and paste must preserve geometry semantics with deterministic in-bounds clamping.
 - Bbox action icons should remain modern/translucent with concise non-blocking tooltips and clear semantic iconography for Delete, Duplicate, and Copy.
 - Pressing Enter while a bbox is selected should open the inline editor when no draft/drag edit interaction is active.

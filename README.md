@@ -1,15 +1,17 @@
-# PDF Anonymization
+﻿# PDF Anonymization
 
 PDF Anonymization is a browser-based tool focused on one workflow:
 
 - Input: PDF
 - Output: PDF
 
-## v0.5.0 (2026-03-28)
+## v0.5.7 (2026-04-05)
 
 Current feature set:
 
 - Single compact workspace for PDF retrieval/upload, viewing, and bbox editing.
+- Viewer-only per-page rotation (`0 / 90 / 180 / 270 deg`) for easier anonymization on difficult page orientations.
+- Per-bbox `Rotate text` action icon (`0 / 90 / 180 / 270 deg`) in the bbox action cluster that keeps label orientation stable unless explicitly changed.
 - Direct click-and-drag bbox creation on empty viewer page space (no toolbar creation button).
 - Bounded bbox move/resize/delete interactions with minimum-size enforcement.
 - Refined outside-corner delete control and centered adaptive bbox label sizing.
@@ -20,14 +22,18 @@ Current feature set:
 - Optional numeric suffix support for repeated entities displayed with Arabic-Indic numerals.
 - Top-bar `Save` action with compact `idle` / `saving` / `saved` status.
 - Autosave on bbox/session mutations with subtle viewer feedback and last autosave time.
-- Bounded undo/redo history for bbox create/move/resize/delete/duplicate/paste/entity/number mutations.
+- Bounded undo/redo history for bbox create/move/resize/delete/duplicate/paste/entity/number/text-angle mutations.
 - Restore prompt for matching PDF sessions after accidental close/refresh.
 - Browser `beforeunload` close-protection when bbox work is dirty or not yet exported.
+- Copy/duplicate/paste preserve bbox text angle consistently.
+- Rotation-related mojibake regressions are normalized in bbox/session label paths and toolbar iconography uses encoding-safe SVG.
 - Export now uses a true PDF-preserving redaction pipeline instead of full-page rasterization.
 - Redacted regions are irreversibly anonymized through secure PDF mutation before final overlay drawing.
 - Selectable and searchable text remains preserved for non-anonymized content without rebuilt hidden text layers.
 - Export gracefully skips invalid bboxes (including out-of-bounds/page-invalid entries) and continues exporting all valid bboxes.
-- Export uses rotation-aware bounds/coordinate mapping for redaction and overlay placement on rotated pages.
+- Export uses rotation-aware bounds/coordinate mapping for redaction and overlay placement on rotated source PDF pages.
+- Viewer page rotation never mutates PDF bytes and never changes exported page orientation from the input PDF.
+- Export applies each bbox label using its stored text angle while preserving no-clipping label layout safety.
 - Export now performs a redaction-output integrity check and automatically switches to a high-fidelity rasterized secure fallback when mutation output is visually corrupted.
 - Real export failures are shown immediately in an on-screen status banner (not tooltip-only).
 - Export label/number ordering, Arabic-Indic numbering, and bbox border styling stay aligned with in-app preview rules.
@@ -75,4 +81,3 @@ npm run build
 
 - Export is enabled when a PDF is loaded and at least one bbox exists.
 - Save/autosave/restore persists only session state (bbox/history/metadata), never the PDF content itself.
-

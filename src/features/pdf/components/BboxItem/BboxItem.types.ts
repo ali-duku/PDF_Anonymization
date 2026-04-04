@@ -5,6 +5,7 @@ import type { BboxActionClusterOffset } from "../../utils/bboxActionClusterPlace
 export interface BboxItemProps {
   bbox: PdfBbox;
   displayRect: BboxDisplayRect;
+  pageViewRotationQuarterTurns: number;
   actionClusterOffset: BboxActionClusterOffset;
   isSelected: boolean;
   isEditing: boolean;
@@ -19,6 +20,7 @@ export interface BboxItemProps {
   onDelete: (bboxId: string) => void;
   onDuplicate: (bboxId: string) => void;
   onCopy: (bboxId: string) => void;
+  onRotateText: (bboxId: string, nextRotationQuarterTurns: number) => void;
   onOpenEditor: (bboxId: string) => void;
   onCloseEditor: () => void;
   onLabelChange: (bboxId: string, nextLabel: string) => void;

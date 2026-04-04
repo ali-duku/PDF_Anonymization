@@ -1,5 +1,7 @@
 import { RUNTIME_HISTORY_LIMIT } from "../../constants/session";
 import type { SessionHistoryState, SessionPresentState } from "../../types/session";
+import { normalizePdfBboxState } from "../../utils/bboxState";
+import { normalizePotentialMojibakeText } from "../../utils/textEncoding";
 
 export interface HistoryMutationOptions {
   mutationKey?: string;
@@ -25,8 +27,8 @@ export function createInitialHistoryState(): SessionHistoryState {
 
 export function clonePresentState(state: SessionPresentState): SessionPresentState {
   return {
-    bboxes: state.bboxes.map((bbox) => ({ ...bbox })),
-    customEntityLabels: [...state.customEntityLabels],
+    bboxes: state.bboxes.map((bbox) => normalizePdfBboxState({ ...bbox })),
+    customEntityLabels: state.customEntityLabels.map((label) => normalizePotentialMojibakeText(label)),
     revision: state.revision
   };
 }

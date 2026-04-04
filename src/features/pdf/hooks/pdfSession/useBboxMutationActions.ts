@@ -1,14 +1,20 @@
 import { useCallback, useMemo } from "react";
-import { BBOX_MIN_SIZE, DEFAULT_ARABIC_ENTITY_LABELS } from "../../constants/bbox";
-import type {
-  BboxClipboardSnapshot,
-  PdfBbox,
-  PdfBboxRect,
-  PdfPageSize
-} from "../../types/bbox";
+import { BBOX_MIN_SIZE } from "../../constants/bbox";
+import type { BboxClipboardSnapshot, PdfBbox, PdfBboxRect, PdfPageSize } from "../../types/bbox";
 import type { SessionPresentState } from "../../types/session";
 import { buildDuplicateRect, buildPastedRect, createBboxClipboardSnapshot } from "../../utils/bboxClipboard";
+import { buildNewPdfBbox } from "../../utils/bboxCreation";
+import { resolveBboxTextRotationQuarterTurns } from "../../utils/bboxState";
+import { normalizePotentialMojibakeText } from "../../utils/textEncoding";
 import { normalizeRectWithinBounds } from "../../utils/bboxGeometry";
+import {
+  applyBboxEntityLabelUpdate,
+  applyBboxInstanceNumberUpdate,
+  applyBboxRectUpdate,
+  applyBboxTextRotationUpdate,
+  applyCustomEntityLabelRegistration,
+  buildEntityOptions
+} from "./bboxMutationHelpers";
 
 interface MutationOptions {
   mutationKey?: string;
@@ -23,6 +29,7 @@ type RunMutation = (
 export interface UseBboxMutationActionsOptions {
   hasActiveSession: boolean;
   currentPage: number;
+  currentPageViewRotationQuarterTurns: number;
   pageSize: PdfPageSize;
   bboxes: PdfBbox[];
   customEntityLabels: string[];
@@ -44,17 +51,15 @@ export interface BboxMutationActionsResult {
   updateBboxRect: (bboxId: string, rect: PdfBboxRect) => void;
   updateBboxEntityLabel: (bboxId: string, nextLabel: string) => void;
   updateBboxInstanceNumber: (bboxId: string, nextNumber: number | null) => void;
+  updateBboxTextRotation: (bboxId: string, nextRotationQuarterTurns: number) => void;
   deleteBbox: (bboxId: string) => void;
   registerCustomEntityLabel: (label: string) => void;
-}
-
-function areRectsEqual(left: PdfBboxRect, right: PdfBboxRect): boolean {
-  return left.x === right.x && left.y === right.y && left.width === right.width && left.height === right.height;
 }
 
 export function useBboxMutationActions({
   hasActiveSession,
   currentPage,
+  currentPageViewRotationQuarterTurns,
   pageSize,
   bboxes,
   customEntityLabels,
@@ -65,15 +70,7 @@ export function useBboxMutationActions({
   nextBboxId,
   runMutation
 }: UseBboxMutationActionsOptions): BboxMutationActionsResult {
-  const entityOptions = useMemo(() => {
-    const options: string[] = [...DEFAULT_ARABIC_ENTITY_LABELS];
-    for (const customLabel of customEntityLabels) {
-      if (!options.includes(customLabel)) {
-        options.push(customLabel);
-      }
-    }
-    return options;
-  }, [customEntityLabels]);
+  const entityOptions = useMemo(() => buildEntityOptions(customEntityLabels), [customEntityLabels]);
 
   const createBbox = useCallback(
     (rect: PdfBboxRect) => {
@@ -83,16 +80,12 @@ export function useBboxMutationActions({
 
       const nextRect = normalizeRectWithinBounds(rect, pageSize, BBOX_MIN_SIZE);
       const nextId = nextBboxId();
-      const nextBbox: PdfBbox = {
+      const nextBbox = buildNewPdfBbox({
         id: nextId,
         pageNumber: currentPage,
-        x: nextRect.x,
-        y: nextRect.y,
-        width: nextRect.width,
-        height: nextRect.height,
-        entityLabel: "",
-        instanceNumber: null
-      };
+        rect: nextRect,
+        pageViewRotationQuarterTurns: currentPageViewRotationQuarterTurns
+      });
 
       runMutation((present) => ({
         bboxes: [...present.bboxes, nextBbox],
@@ -101,7 +94,16 @@ export function useBboxMutationActions({
       setSelectedBboxId(nextId);
       setEditingBboxId(nextId);
     },
-    [currentPage, hasActiveSession, nextBboxId, pageSize, runMutation, setEditingBboxId, setSelectedBboxId]
+    [
+      currentPage,
+      currentPageViewRotationQuarterTurns,
+      hasActiveSession,
+      nextBboxId,
+      pageSize,
+      runMutation,
+      setEditingBboxId,
+      setSelectedBboxId
+    ]
   );
 
   const copyBbox = useCallback(
@@ -110,7 +112,6 @@ export function useBboxMutationActions({
       if (!sourceBbox) {
         return;
       }
-
       setClipboardSnapshot(createBboxClipboardSnapshot(sourceBbox));
     },
     [bboxes, setClipboardSnapshot]
@@ -126,6 +127,7 @@ export function useBboxMutationActions({
       const duplicatedBbox: PdfBbox = {
         ...sourceBbox,
         id: nextBboxId(),
+        textRotationQuarterTurns: resolveBboxTextRotationQuarterTurns(sourceBbox.textRotationQuarterTurns),
         ...buildDuplicateRect(sourceBbox, pageSize)
       };
 
@@ -153,8 +155,9 @@ export function useBboxMutationActions({
       y: nextRect.y,
       width: nextRect.width,
       height: nextRect.height,
-      entityLabel: clipboardSnapshot.entityLabel,
-      instanceNumber: clipboardSnapshot.instanceNumber
+      entityLabel: normalizePotentialMojibakeText(clipboardSnapshot.entityLabel),
+      instanceNumber: clipboardSnapshot.instanceNumber,
+      textRotationQuarterTurns: resolveBboxTextRotationQuarterTurns(clipboardSnapshot.textRotationQuarterTurns)
     };
 
     runMutation((present) => ({
@@ -177,72 +180,19 @@ export function useBboxMutationActions({
   const updateBboxRect = useCallback(
     (bboxId: string, rect: PdfBboxRect) => {
       const boundedRect = normalizeRectWithinBounds(rect, pageSize, BBOX_MIN_SIZE);
-      runMutation(
-        (present) => {
-          let didChange = false;
-          const nextBboxes = present.bboxes.map((bbox) => {
-            if (bbox.id !== bboxId) {
-              return bbox;
-            }
-
-            if (areRectsEqual(bbox, boundedRect)) {
-              return bbox;
-            }
-
-            didChange = true;
-            return {
-              ...bbox,
-              ...boundedRect
-            };
-          });
-
-          if (!didChange) {
-            return null;
-          }
-
-          return {
-            bboxes: nextBboxes,
-            customEntityLabels: present.customEntityLabels
-          };
-        },
-        {
-          mutationKey: `rect:${bboxId}`,
-          allowCoalesce: true
-        }
-      );
+      runMutation((present) => applyBboxRectUpdate(present, bboxId, boundedRect), {
+        mutationKey: `rect:${bboxId}`,
+        allowCoalesce: true
+      });
     },
     [pageSize, runMutation]
   );
 
   const updateBboxEntityLabel = useCallback(
     (bboxId: string, nextLabel: string) => {
-      runMutation((present) => {
-        let didChange = false;
-        const nextBboxes = present.bboxes.map((bbox) => {
-          if (bbox.id !== bboxId) {
-            return bbox;
-          }
-
-          if (bbox.entityLabel === nextLabel) {
-            return bbox;
-          }
-
-          didChange = true;
-          return {
-            ...bbox,
-            entityLabel: nextLabel
-          };
-        });
-
-        if (!didChange) {
-          return null;
-        }
-
-        return {
-          bboxes: nextBboxes,
-          customEntityLabels: present.customEntityLabels
-        };
-      });
+      runMutation((present) =>
+        applyBboxEntityLabelUpdate(present, bboxId, normalizePotentialMojibakeText(nextLabel))
+      );
     },
     [runMutation]
   );
@@ -253,34 +203,14 @@ export function useBboxMutationActions({
         typeof nextNumber === "number" && Number.isFinite(nextNumber) && nextNumber > 0
           ? Math.trunc(nextNumber)
           : null;
+      runMutation((present) => applyBboxInstanceNumberUpdate(present, bboxId, safeNumber));
+    },
+    [runMutation]
+  );
 
-      runMutation((present) => {
-        let didChange = false;
-        const nextBboxes = present.bboxes.map((bbox) => {
-          if (bbox.id !== bboxId) {
-            return bbox;
-          }
-
-          if (bbox.instanceNumber === safeNumber) {
-            return bbox;
-          }
-
-          didChange = true;
-          return {
-            ...bbox,
-            instanceNumber: safeNumber
-          };
-        });
-
-        if (!didChange) {
-          return null;
-        }
-
-        return {
-          bboxes: nextBboxes,
-          customEntityLabels: present.customEntityLabels
-        };
-      });
+  const updateBboxTextRotation = useCallback(
+    (bboxId: string, nextRotationQuarterTurns: number) => {
+      runMutation((present) => applyBboxTextRotationUpdate(present, bboxId, nextRotationQuarterTurns));
     },
     [runMutation]
   );
@@ -292,13 +222,11 @@ export function useBboxMutationActions({
         if (nextBboxes.length === present.bboxes.length) {
           return null;
         }
-
         return {
           bboxes: nextBboxes,
           customEntityLabels: present.customEntityLabels
         };
       });
-
       setSelectedBboxId((previous) => (previous === bboxId ? null : previous));
       setEditingBboxId((previous) => (previous === bboxId ? null : previous));
     },
@@ -307,23 +235,7 @@ export function useBboxMutationActions({
 
   const registerCustomEntityLabel = useCallback(
     (label: string) => {
-      if (label.trim().length === 0) {
-        return;
-      }
-
-      runMutation((present) => {
-        if (
-          present.customEntityLabels.includes(label) ||
-          (DEFAULT_ARABIC_ENTITY_LABELS as readonly string[]).includes(label)
-        ) {
-          return null;
-        }
-
-        return {
-          bboxes: present.bboxes,
-          customEntityLabels: [...present.customEntityLabels, label]
-        };
-      });
+      runMutation((present) => applyCustomEntityLabelRegistration(present, label));
     },
     [runMutation]
   );
@@ -338,6 +250,7 @@ export function useBboxMutationActions({
     updateBboxRect,
     updateBboxEntityLabel,
     updateBboxInstanceNumber,
+    updateBboxTextRotation,
     deleteBbox,
     registerCustomEntityLabel
   };

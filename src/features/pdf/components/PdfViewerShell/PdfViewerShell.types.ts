@@ -39,5 +39,5 @@ export interface PdfViewerShellProps {
   onPageInput: (nextPage: number) => void;
   onZoomOut: () => void;
   onZoomIn: () => void;
-  onFitToWidth: () => Promise<void>;
+  onFitToWidth: (pageViewRotationQuarterTurns?: number) => Promise<void>;
 }

@@ -1,6 +1,6 @@
 import type { ComponentType, CSSProperties } from "react";
 
-export type BboxActionId = "delete" | "duplicate" | "copy";
+export type BboxActionId = "delete" | "duplicate" | "copy" | "rotateText";
 
 export type BboxActionVariant = BboxActionId;
 
@@ -18,6 +18,7 @@ export interface BboxActionClusterProps {
   onDelete: () => void;
   onDuplicate: () => void;
   onCopy: () => void;
+  onRotateText: () => void;
   onPointerEnter: () => void;
   onPointerLeave: () => void;
 }

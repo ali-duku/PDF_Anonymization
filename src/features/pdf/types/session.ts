@@ -9,6 +9,12 @@ export interface PdfSessionIdentity {
   id: string;
 }
 
+export type PageViewerRotationMap = Record<number, number>;
+
+export interface SessionViewState {
+  pageViewerRotations: PageViewerRotationMap;
+}
+
 export interface SessionPresentState {
   bboxes: PdfBbox[];
   customEntityLabels: string[];
@@ -36,6 +42,7 @@ export interface PersistedSessionMeta {
 export interface PersistedSessionSnapshot {
   meta: PersistedSessionMeta;
   history: SessionHistoryState;
+  viewState?: SessionViewState;
 }
 
 export interface PersistedSessionStore {

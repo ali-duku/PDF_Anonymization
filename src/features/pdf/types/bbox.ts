@@ -3,6 +3,8 @@ export interface PdfPageSize {
   height: number;
 }
 
+export type BboxTextRotationQuarterTurns = 0 | 1 | 2 | 3;
+
 export interface PdfBboxRect {
   x: number;
   y: number;
@@ -15,11 +17,13 @@ export interface PdfBbox extends PdfBboxRect {
   pageNumber: number;
   entityLabel: string;
   instanceNumber: number | null;
+  textRotationQuarterTurns: BboxTextRotationQuarterTurns;
 }
 
 export interface BboxClipboardSnapshot extends PdfBboxRect {
   entityLabel: string;
   instanceNumber: number | null;
+  textRotationQuarterTurns: BboxTextRotationQuarterTurns;
 }
 
 export interface BboxDisplayRect extends PdfBboxRect {}

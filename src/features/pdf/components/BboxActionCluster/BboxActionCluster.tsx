@@ -53,6 +53,21 @@ function CopyIcon() {
   );
 }
 
+function RotateTextIcon() {
+  return (
+    <svg className={styles.icon} viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M4.8 7.2h7.8M8.7 7.2v8M14.4 10.2a4.2 4.2 0 1 1-2.5 7.6M14.4 10.2v3.1h3.1"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+    </svg>
+  );
+}
+
 interface ActionButtonProps {
   actionId: BboxActionId;
   label: string;
@@ -132,6 +147,13 @@ const ACTION_DEFINITIONS: readonly BboxActionDefinition[] = [
     title: "Copy bbox",
     variant: "copy",
     Icon: CopyIcon
+  },
+  {
+    id: "rotateText",
+    label: "Rotate text",
+    title: "Rotate bbox text",
+    variant: "rotateText",
+    Icon: RotateTextIcon
   }
 ];
 
@@ -141,6 +163,7 @@ function BboxActionClusterComponent({
   onDelete,
   onDuplicate,
   onCopy,
+  onRotateText,
   onPointerEnter,
   onPointerLeave
 }: BboxActionClusterProps) {
@@ -150,9 +173,10 @@ function BboxActionClusterComponent({
     () => ({
       delete: onDelete,
       duplicate: onDuplicate,
-      copy: onCopy
+      copy: onCopy,
+      rotateText: onRotateText
     }),
-    [onCopy, onDelete, onDuplicate]
+    [onCopy, onDelete, onDuplicate, onRotateText]
   );
 
   return (

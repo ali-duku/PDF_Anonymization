@@ -117,6 +117,7 @@ async function drawBboxOverlay(
     bbox: {
       entityLabel: bbox.entityLabel,
       instanceNumber: bbox.instanceNumber,
+      textRotationQuarterTurns: bbox.textRotationQuarterTurns
     }
   });
 }

@@ -1,6 +1,8 @@
 import { BBOX_DUPLICATE_SHIFT_X, BBOX_DUPLICATE_SHIFT_Y, BBOX_MIN_SIZE } from "../constants/bbox";
 import type { BboxClipboardSnapshot, PdfBbox, PdfBboxRect, PdfPageSize } from "../types/bbox";
+import { resolveBboxTextRotationQuarterTurns } from "./bboxState";
 import { normalizeRectWithinBounds } from "./bboxGeometry";
+import { normalizePotentialMojibakeText } from "./textEncoding";
 
 export function createBboxClipboardSnapshot(bbox: PdfBbox): BboxClipboardSnapshot {
   return {
@@ -8,8 +10,9 @@ export function createBboxClipboardSnapshot(bbox: PdfBbox): BboxClipboardSnapsho
     y: bbox.y,
     width: bbox.width,
     height: bbox.height,
-    entityLabel: bbox.entityLabel,
-    instanceNumber: bbox.instanceNumber
+    entityLabel: normalizePotentialMojibakeText(bbox.entityLabel),
+    instanceNumber: bbox.instanceNumber,
+    textRotationQuarterTurns: resolveBboxTextRotationQuarterTurns(bbox.textRotationQuarterTurns)
   };
 }
 

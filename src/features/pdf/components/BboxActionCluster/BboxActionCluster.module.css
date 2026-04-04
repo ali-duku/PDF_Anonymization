@@ -90,6 +90,14 @@
   --action-icon-color: #ecfffb;
 }
 
+.rotateTextButton {
+  --action-bg-top: rgba(255, 195, 123, 0.34);
+  --action-bg-bottom: rgba(178, 108, 38, 0.44);
+  --action-border-color: rgba(220, 158, 90, 0.62);
+  --action-border-hover-color: rgba(244, 191, 132, 0.82);
+  --action-icon-color: #fff5e8;
+}
+
 .icon {
   width: var(--bbox-action-icon-size);
   height: var(--bbox-action-icon-size);

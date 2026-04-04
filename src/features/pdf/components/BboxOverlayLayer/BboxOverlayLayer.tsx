@@ -1,13 +1,4 @@
-import {
-  memo,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-  type PointerEvent as ReactPointerEvent
-} from "react";
+import { memo, useCallback, useMemo, useRef, type CSSProperties } from "react";
 import {
   BBOX_BORDER_COLOR,
   BBOX_BORDER_WIDTH,
@@ -19,62 +10,25 @@ import {
   BBOX_ACTION_ICON_SIZE,
   BBOX_ACTION_TOOLTIP_OFFSET,
   BBOX_ACTION_TOOLTIP_Z_INDEX,
-  BBOX_CREATE_DRAG_THRESHOLD_PX,
   BBOX_EDITOR_MIN_WIDTH,
   BBOX_FILL_COLOR,
   BBOX_HANDLE_SIZE,
+  BBOX_LABEL_EDITOR_Z_INDEX,
   BBOX_LABEL_FONT_FAMILY,
   BBOX_LABEL_FONT_WEIGHT,
-  BBOX_LABEL_EDITOR_Z_INDEX,
   BBOX_LABEL_PADDING,
   BBOX_LAYER_Z_INDEX,
-  BBOX_MIN_SIZE,
   BBOX_TEXT_COLOR
 } from "../../constants/bbox";
 import { useBboxOverlayKeyboardShortcuts } from "../../hooks/useBboxOverlayKeyboardShortcuts";
-import type { BboxDisplayRect, BboxResizeHandle, PdfBbox, PdfBboxRect, PdfPageSize } from "../../types/bbox";
+import { useBboxOverlayInteractions } from "../../hooks/bboxOverlay/useBboxOverlayInteractions";
+import type { BboxDisplayRect, PdfBbox } from "../../types/bbox";
 import { resolveBboxActionClusterOffset, type BboxActionClusterOffset } from "../../utils/bboxActionClusterPlacement";
-import {
-  buildRectFromPoints,
-  clampValue,
-  isValidPageSize,
-  moveRectWithinBounds,
-  pageRectToDisplayRect,
-  resizeRectWithinBounds,
-  type PagePoint
-} from "../../utils/bboxGeometry";
+import { isValidPageSize } from "../../utils/bboxGeometry";
+import { pageRectToRotatedDisplayRect } from "../../utils/pageViewTransform";
 import { BboxItem } from "../BboxItem/BboxItem";
 import styles from "./BboxOverlayLayer.module.css";
 import type { BboxOverlayLayerProps } from "./BboxOverlayLayer.types";
-
-type PagePointProjector = (clientX: number, clientY: number) => PagePoint;
-
-interface DraftCreationState {
-  projector: PagePointProjector;
-  startClientX: number;
-  startClientY: number;
-  start: PagePoint;
-  current: PagePoint;
-}
-
-interface ActiveMoveInteraction {
-  type: "move";
-  bboxId: string;
-  projector: PagePointProjector;
-  startPoint: PagePoint;
-  initialRect: PdfBboxRect;
-}
-
-interface ActiveResizeInteraction {
-  type: "resize";
-  bboxId: string;
-  handle: BboxResizeHandle;
-  projector: PagePointProjector;
-  startPoint: PagePoint;
-  initialRect: PdfBboxRect;
-}
-
-type ActiveInteraction = ActiveMoveInteraction | ActiveResizeInteraction;
 
 interface RenderableBbox {
   bbox: PdfBbox;
@@ -82,31 +36,13 @@ interface RenderableBbox {
   actionClusterOffset: BboxActionClusterOffset;
 }
 
-function buildPagePointProjector(stageElement: HTMLElement | null, pageSize: PdfPageSize): PagePointProjector | null {
-  if (!stageElement || !isValidPageSize(pageSize)) {
-    return null;
-  }
-
-  const stageRect = stageElement.getBoundingClientRect();
-  if (stageRect.width <= 0 || stageRect.height <= 0) {
-    return null;
-  }
-
-  const scaleX = pageSize.width / stageRect.width;
-  const scaleY = pageSize.height / stageRect.height;
-
-  // Snapshot stage bounds at drag start to keep pointer mapping stable while dragging.
-  return (clientX: number, clientY: number) => ({
-    x: clampValue((clientX - stageRect.left) * scaleX, 0, pageSize.width),
-    y: clampValue((clientY - stageRect.top) * scaleY, 0, pageSize.height)
-  });
-}
-
 function BboxOverlayLayerComponent({
   hasPdf,
   pageStageRef,
   displayPageSize,
+  displayPageBaseSize,
   pageSize,
+  pageViewRotationQuarterTurns,
   bboxes,
   selectedBboxId,
   editingBboxId,
@@ -122,14 +58,16 @@ function BboxOverlayLayerComponent({
   onUpdateBboxRect,
   onUpdateBboxEntityLabel,
   onUpdateBboxInstanceNumber,
+  onUpdateBboxTextRotation,
   onRegisterCustomEntityLabel
 }: BboxOverlayLayerProps) {
   const overlayRef = useRef<HTMLDivElement | null>(null);
-  const draftCreationRef = useRef<DraftCreationState | null>(null);
-  const [draftCreation, setDraftCreation] = useState<DraftCreationState | null>(null);
-  const [activeInteraction, setActiveInteraction] = useState<ActiveInteraction | null>(null);
 
-  const canRenderOverlay = hasPdf && isValidPageSize(pageSize) && isValidPageSize(displayPageSize);
+  const canRenderOverlay =
+    hasPdf &&
+    isValidPageSize(pageSize) &&
+    isValidPageSize(displayPageSize) &&
+    isValidPageSize(displayPageBaseSize);
 
   const bboxesById = useMemo(() => {
     const map = new Map<string, PdfBbox>();
@@ -146,7 +84,12 @@ function BboxOverlayLayerComponent({
 
     return bboxes
       .map<RenderableBbox | null>((bbox) => {
-        const displayRect = pageRectToDisplayRect(bbox, pageSize, displayPageSize);
+        const displayRect = pageRectToRotatedDisplayRect(
+          bbox,
+          pageSize,
+          displayPageBaseSize,
+          pageViewRotationQuarterTurns
+        );
         if (!displayRect) {
           return null;
         }
@@ -158,7 +101,14 @@ function BboxOverlayLayerComponent({
         };
       })
       .filter((item): item is RenderableBbox => Boolean(item));
-  }, [bboxes, canRenderOverlay, displayPageSize, pageSize]);
+  }, [
+    bboxes,
+    canRenderOverlay,
+    displayPageBaseSize,
+    displayPageSize,
+    pageSize,
+    pageViewRotationQuarterTurns
+  ]);
 
   const focusOverlayForKeyboard = useCallback(() => {
     const overlayElement = overlayRef.current;
@@ -185,234 +135,28 @@ function BboxOverlayLayerComponent({
     [focusOverlayForKeyboard, onSelectBbox]
   );
 
-  const createProjector = useCallback(
-    () => buildPagePointProjector(pageStageRef.current, pageSize),
-    [pageSize, pageStageRef]
-  );
-
-  const handleOverlayPointerDown = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
-      if (!canRenderOverlay || event.button !== 0) {
-        return;
-      }
-
-      if (event.target !== event.currentTarget) {
-        return;
-      }
-
-      const projector = createProjector();
-      if (!projector) {
-        return;
-      }
-
-      const startPoint = projector(event.clientX, event.clientY);
-      event.preventDefault();
-      onSelectBbox(null);
-      closeEditor();
-
-      setDraftCreation({
-        projector,
-        startClientX: event.clientX,
-        startClientY: event.clientY,
-        start: startPoint,
-        current: startPoint
-      });
-    },
-    [canRenderOverlay, closeEditor, createProjector, onSelectBbox]
-  );
-
-  const startMoveInteraction = useCallback(
-    (bboxId: string, event: ReactPointerEvent<HTMLDivElement>) => {
-      if (!canRenderOverlay || event.button !== 0) {
-        return;
-      }
-
-      const targetBbox = bboxesById.get(bboxId);
-      if (!targetBbox) {
-        return;
-      }
-
-      const projector = createProjector();
-      if (!projector) {
-        return;
-      }
-
-      const startPoint = projector(event.clientX, event.clientY);
-      event.preventDefault();
-      event.stopPropagation();
-      focusOverlayForKeyboard();
-      onSelectBbox(bboxId);
-      closeEditor();
-      setActiveInteraction({
-        type: "move",
-        bboxId,
-        projector,
-        startPoint,
-        initialRect: {
-          x: targetBbox.x,
-          y: targetBbox.y,
-          width: targetBbox.width,
-          height: targetBbox.height
-        }
-      });
-    },
-    [bboxesById, canRenderOverlay, closeEditor, createProjector, focusOverlayForKeyboard, onSelectBbox]
-  );
-
-  const startResizeInteraction = useCallback(
-    (bboxId: string, handle: BboxResizeHandle, event: ReactPointerEvent<HTMLButtonElement>) => {
-      if (!canRenderOverlay || event.button !== 0) {
-        return;
-      }
-
-      const targetBbox = bboxesById.get(bboxId);
-      if (!targetBbox) {
-        return;
-      }
-
-      const projector = createProjector();
-      if (!projector) {
-        return;
-      }
-
-      const startPoint = projector(event.clientX, event.clientY);
-      event.preventDefault();
-      event.stopPropagation();
-      focusOverlayForKeyboard();
-      onSelectBbox(bboxId);
-      closeEditor();
-      setActiveInteraction({
-        type: "resize",
-        bboxId,
-        handle,
-        projector,
-        startPoint,
-        initialRect: {
-          x: targetBbox.x,
-          y: targetBbox.y,
-          width: targetBbox.width,
-          height: targetBbox.height
-        }
-      });
-    },
-    [bboxesById, canRenderOverlay, closeEditor, createProjector, focusOverlayForKeyboard, onSelectBbox]
-  );
-
-  useEffect(() => {
-    draftCreationRef.current = draftCreation;
-  }, [draftCreation]);
-
-  const isDrafting = draftCreation !== null;
-
-  useEffect(() => {
-    if (!isDrafting) {
-      return;
-    }
-
-    const handlePointerMove = (event: PointerEvent) => {
-      const snapshot = draftCreationRef.current;
-      if (!snapshot) {
-        return;
-      }
-
-      setDraftCreation({
-        ...snapshot,
-        current: snapshot.projector(event.clientX, event.clientY)
-      });
-    };
-
-    const handlePointerUp = (event: PointerEvent) => {
-      const snapshot = draftCreationRef.current;
-      if (!snapshot) {
-        return;
-      }
-
-      const distance = Math.hypot(event.clientX - snapshot.startClientX, event.clientY - snapshot.startClientY);
-      // Only commit creation after a meaningful drag to avoid accidental click-created boxes.
-      if (distance >= BBOX_CREATE_DRAG_THRESHOLD_PX) {
-        const endPoint = snapshot.projector(event.clientX, event.clientY);
-        onCreateBbox(buildRectFromPoints(snapshot.start, endPoint, pageSize, BBOX_MIN_SIZE));
-      }
-
-      setDraftCreation(null);
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
-    return () => {
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-    };
-  }, [isDrafting, onCreateBbox, pageSize]);
-
-  useEffect(() => {
-    if (!activeInteraction) {
-      return;
-    }
-
-    const handlePointerMove = (event: PointerEvent) => {
-      const currentPoint = activeInteraction.projector(event.clientX, event.clientY);
-      const deltaX = currentPoint.x - activeInteraction.startPoint.x;
-      const deltaY = currentPoint.y - activeInteraction.startPoint.y;
-
-      const nextRect =
-        activeInteraction.type === "move"
-          ? moveRectWithinBounds(activeInteraction.initialRect, deltaX, deltaY, pageSize)
-          : resizeRectWithinBounds(
-              activeInteraction.initialRect,
-              activeInteraction.handle,
-              deltaX,
-              deltaY,
-              pageSize,
-              BBOX_MIN_SIZE
-            );
-
-      onUpdateBboxRect(activeInteraction.bboxId, nextRect);
-    };
-
-    const handlePointerUp = () => {
-      setActiveInteraction(null);
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
-    return () => {
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-    };
-  }, [activeInteraction, onUpdateBboxRect, pageSize]);
-
-  useEffect(() => {
-    if (!activeInteraction && !draftCreation) {
-      return;
-    }
-
-    const previousUserSelect = document.body.style.userSelect;
-    document.body.style.userSelect = "none";
-    return () => {
-      document.body.style.userSelect = previousUserSelect;
-    };
-  }, [activeInteraction, draftCreation]);
-
-  const draftDisplayRect = useMemo(() => {
-    if (!draftCreation || !canRenderOverlay) {
-      return null;
-    }
-
-    const pageRect = buildRectFromPoints(draftCreation.start, draftCreation.current, pageSize, BBOX_MIN_SIZE);
-    return pageRectToDisplayRect(pageRect, pageSize, displayPageSize);
-  }, [canRenderOverlay, displayPageSize, draftCreation, pageSize]);
+  const overlayInteractions = useBboxOverlayInteractions({
+    canRenderOverlay,
+    pageStageRef,
+    pageSize,
+    displayPageBaseSize,
+    pageViewRotationQuarterTurns,
+    bboxesById,
+    focusOverlayForKeyboard,
+    onSelectBbox,
+    closeEditor,
+    onCreateBbox,
+    onUpdateBboxRect
+  });
 
   useBboxOverlayKeyboardShortcuts({
     isEnabled: canRenderOverlay,
     selectedBboxId,
     editingBboxId,
-    hasDraftCreation: Boolean(draftCreation),
-    hasActiveInteraction: Boolean(activeInteraction),
+    hasDraftCreation: Boolean(overlayInteractions.draftCreation),
+    hasActiveInteraction: Boolean(overlayInteractions.activeInteraction),
     canPasteBbox,
-    onCancelDraftCreation: () => {
-      setDraftCreation(null);
-    },
+    onCancelDraftCreation: overlayInteractions.cancelDraftCreation,
     onCloseEditor: closeEditor,
     onClearSelection: () => {
       onSelectBbox(null);
@@ -456,23 +200,25 @@ function BboxOverlayLayerComponent({
       }
       tabIndex={0}
       aria-label="BBox overlay"
-      onPointerDown={handleOverlayPointerDown}
+      onPointerDown={overlayInteractions.handleOverlayPointerDown}
     >
       {renderableBboxes.map(({ bbox, displayRect, actionClusterOffset }) => (
         <BboxItem
           key={bbox.id}
           bbox={bbox}
           displayRect={displayRect}
+          pageViewRotationQuarterTurns={pageViewRotationQuarterTurns}
           actionClusterOffset={actionClusterOffset}
           isSelected={selectedBboxId === bbox.id}
           isEditing={editingBboxId === bbox.id}
           entityOptions={entityOptions}
           onSelect={handleSelectBbox}
-          onStartMove={startMoveInteraction}
-          onStartResize={startResizeInteraction}
+          onStartMove={overlayInteractions.startMoveInteraction}
+          onStartResize={overlayInteractions.startResizeInteraction}
           onDelete={onDeleteBbox}
           onDuplicate={onDuplicateBbox}
           onCopy={onCopyBbox}
+          onRotateText={onUpdateBboxTextRotation}
           onOpenEditor={onStartEditingBbox}
           onCloseEditor={closeEditor}
           onLabelChange={onUpdateBboxEntityLabel}
@@ -481,14 +227,14 @@ function BboxOverlayLayerComponent({
         />
       ))}
 
-      {draftDisplayRect && (
+      {overlayInteractions.draftDisplayRect && (
         <div
           className={styles.draftBox}
           style={{
-            left: `${draftDisplayRect.x}px`,
-            top: `${draftDisplayRect.y}px`,
-            width: `${draftDisplayRect.width}px`,
-            height: `${draftDisplayRect.height}px`
+            left: `${overlayInteractions.draftDisplayRect.x}px`,
+            top: `${overlayInteractions.draftDisplayRect.y}px`,
+            width: `${overlayInteractions.draftDisplayRect.width}px`,
+            height: `${overlayInteractions.draftDisplayRect.height}px`
           }}
         />
       )}

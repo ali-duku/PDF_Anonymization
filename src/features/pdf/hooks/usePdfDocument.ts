@@ -3,56 +3,29 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
-  type Dispatch,
-  type MutableRefObject,
-  type SetStateAction
+  useState
 } from "react";
 import { getDocument, type PDFDocumentProxy } from "pdfjs-dist";
 import type { PdfLoadStatus } from "../../../types/pdf";
-import type { RetrievedPdfDocument, RetrievedPdfMeta } from "../../../types/pdfRetrieval";
+import type { RetrievedPdfMeta } from "../../../types/pdfRetrieval";
+import {
+  DEFAULT_DOCUMENT_ZOOM,
+  DOCUMENT_ZOOM_STEP,
+  MAX_DOCUMENT_ZOOM,
+  MIN_DOCUMENT_ZOOM
+} from "../constants/viewer";
+import type {
+  PdfDocumentActions,
+  PdfDocumentState,
+  UsePdfDocumentOptions
+} from "./usePdfDocument.types";
+import { getRotatedPageViewSize } from "../utils/pageViewTransform";
 import { configurePdfJsWorker } from "../utils/pdfWorker";
 
 configurePdfJsWorker();
 
-const MIN_ZOOM = 0.25;
-const MAX_ZOOM = 4;
-const ZOOM_STEP = 0.1;
-const DEFAULT_DOCUMENT_ZOOM = 1.5;
-
-interface UsePdfDocumentOptions {
-  retrievedPdfDocument: RetrievedPdfDocument | null;
-}
-
-export interface PdfDocumentState {
-  pdfDoc: PDFDocumentProxy | null;
-  documentMeta: RetrievedPdfMeta | null;
-  loadStatus: PdfLoadStatus;
-  errorMessage?: string;
-  currentPage: number;
-  totalPages: number;
-  zoom: number;
-  pageWidth: number;
-  pageHeight: number;
-  pageBaseWidth: number;
-  pageBaseHeight: number;
-  hasPdf: boolean;
-}
-
-export interface PdfDocumentActions {
-  canvasRef: MutableRefObject<HTMLCanvasElement | null>;
-  canvasContainerRef: MutableRefObject<HTMLDivElement | null>;
-  pageStageRef: MutableRefObject<HTMLDivElement | null>;
-  movePage: (direction: -1 | 1) => void;
-  handlePageInput: (nextPage: number) => void;
-  handleZoomIn: () => void;
-  handleZoomOut: () => void;
-  handleFitToWidth: () => Promise<void>;
-  setZoom: Dispatch<SetStateAction<number>>;
-}
-
 function clampZoom(value: number): number {
-  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));
+  return Math.min(MAX_DOCUMENT_ZOOM, Math.max(MIN_DOCUMENT_ZOOM, value));
 }
 
 export function usePdfDocument({
@@ -241,7 +214,7 @@ export function usePdfDocument({
     [totalPages]
   );
 
-  const handleFitToWidth = useCallback(async () => {
+  const handleFitToWidth = useCallback(async (pageViewRotationQuarterTurns = 0) => {
     if (!pdfDoc || !canvasContainerRef.current) {
       return;
     }
@@ -255,16 +228,23 @@ export function usePdfDocument({
     const page = await pdfDoc.getPage(currentPage);
     const viewportAtOne = page.getViewport({ scale: 1 });
     const availableWidth = Math.max(container.clientWidth - horizontalPadding, 1);
-    const fittedZoom = clampZoom(availableWidth / viewportAtOne.width);
+    const rotatedPageSize = getRotatedPageViewSize(
+      {
+        width: viewportAtOne.width,
+        height: viewportAtOne.height
+      },
+      pageViewRotationQuarterTurns
+    );
+    const fittedZoom = clampZoom(availableWidth / Math.max(rotatedPageSize.width, 1));
     setZoom(fittedZoom);
   }, [currentPage, pdfDoc]);
 
   const handleZoomIn = useCallback(() => {
-    setZoom((previous) => clampZoom(previous + ZOOM_STEP));
+    setZoom((previous) => clampZoom(previous + DOCUMENT_ZOOM_STEP));
   }, []);
 
   const handleZoomOut = useCallback(() => {
-    setZoom((previous) => clampZoom(previous - ZOOM_STEP));
+    setZoom((previous) => clampZoom(previous - DOCUMENT_ZOOM_STEP));
   }, []);
 
   return useMemo(

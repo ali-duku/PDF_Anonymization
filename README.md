@@ -5,7 +5,7 @@ PDF Anonymization is a browser-based tool focused on one workflow:
 - Input: PDF
 - Output: PDF
 
-## v0.5.7 (2026-04-05)
+## v0.5.8 (2026-04-06)
 
 Current feature set:
 
@@ -23,6 +23,8 @@ Current feature set:
 - Top-bar `Save` action with compact `idle` / `saving` / `saved` status.
 - Autosave on bbox/session mutations with subtle viewer feedback and last autosave time.
 - Bounded undo/redo history for bbox create/move/resize/delete/duplicate/paste/entity/number/text-angle mutations.
+- Viewer/session shortcuts (`Ctrl/Cmd+C`, `Ctrl/Cmd+V`, `Ctrl/Cmd+D`, `Ctrl/Cmd+Z`, `Ctrl/Cmd+Y`, `Ctrl/Cmd+Shift+Z`) are layout-independent and work with Arabic or English keyboard input.
+- `Ctrl/Cmd+D` duplicates the selected bbox through the same canonical duplicate behavior as the bbox Duplicate action and suppresses browser bookmarking in viewer shortcut context.
 - Restore prompt for matching PDF sessions after accidental close/refresh.
 - Browser `beforeunload` close-protection when bbox work is dirty or not yet exported.
 - Copy/duplicate/paste preserve bbox text angle consistently.

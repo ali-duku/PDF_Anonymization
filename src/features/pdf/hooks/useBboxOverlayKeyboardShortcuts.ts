@@ -1,5 +1,10 @@
 import { useEffect } from "react";
+import { PDF_BBOX_OVERLAY_SHORTCUTS } from "../constants/keyboardShortcuts";
 import { isEditableEventTarget } from "../utils/editableTarget";
+import {
+  matchesAnyKeyboardShortcut,
+  matchesKeyboardShortcut
+} from "../utils/keyboardShortcuts";
 
 interface UseBboxOverlayKeyboardShortcutsOptions {
   isEnabled: boolean;
@@ -12,6 +17,7 @@ interface UseBboxOverlayKeyboardShortcutsOptions {
   onCloseEditor: () => void;
   onClearSelection: () => void;
   onDeleteBbox: (bboxId: string) => void;
+  onDuplicateBbox: (bboxId: string) => void;
   onStartEditingBbox: (bboxId: string) => void;
   onCopyBbox: (bboxId: string) => void;
   onPasteBbox: () => void;
@@ -28,6 +34,7 @@ export function useBboxOverlayKeyboardShortcuts({
   onCloseEditor,
   onClearSelection,
   onDeleteBbox,
+  onDuplicateBbox,
   onStartEditingBbox,
   onCopyBbox,
   onPasteBbox
@@ -42,46 +49,61 @@ export function useBboxOverlayKeyboardShortcuts({
         return;
       }
 
-      const key = event.key.toLowerCase();
-      const hasShortcutModifier = event.ctrlKey || event.metaKey;
       // Keep native text-edit shortcuts untouched while label editor or drag interactions are active.
-      const canRunClipboardShortcut =
+      const canRunSelectedBboxActionShortcut =
         !editingBboxId && !hasDraftCreation && !hasActiveInteraction;
+      const isDismissShortcut = matchesKeyboardShortcut(event, PDF_BBOX_OVERLAY_SHORTCUTS.dismiss);
 
-      if (hasShortcutModifier && !event.altKey && !event.shiftKey) {
-        if (key === "c" && selectedBboxId && canRunClipboardShortcut) {
-          event.preventDefault();
-          onCopyBbox(selectedBboxId);
-          return;
-        }
-
-        if (key === "v" && canPasteBbox && canRunClipboardShortcut) {
-          event.preventDefault();
-          onPasteBbox();
-          return;
-        }
+      if (
+        matchesKeyboardShortcut(event, PDF_BBOX_OVERLAY_SHORTCUTS.copy) &&
+        selectedBboxId &&
+        canRunSelectedBboxActionShortcut
+      ) {
+        event.preventDefault();
+        onCopyBbox(selectedBboxId);
+        return;
       }
 
-      if (event.key === "Escape" && hasDraftCreation) {
+      if (
+        matchesKeyboardShortcut(event, PDF_BBOX_OVERLAY_SHORTCUTS.paste) &&
+        canPasteBbox &&
+        canRunSelectedBboxActionShortcut
+      ) {
+        event.preventDefault();
+        onPasteBbox();
+        return;
+      }
+
+      if (matchesKeyboardShortcut(event, PDF_BBOX_OVERLAY_SHORTCUTS.duplicate)) {
+        // Ctrl/Cmd+D is browser-reserved for bookmarking, so app context intentionally wins here.
+        event.preventDefault();
+
+        if (selectedBboxId && canRunSelectedBboxActionShortcut) {
+          onDuplicateBbox(selectedBboxId);
+        }
+        return;
+      }
+
+      if (isDismissShortcut && hasDraftCreation) {
         event.preventDefault();
         onCancelDraftCreation();
         return;
       }
 
-      if (event.key === "Escape" && editingBboxId) {
+      if (isDismissShortcut && editingBboxId) {
         event.preventDefault();
         onCloseEditor();
         return;
       }
 
-      if (event.key === "Escape" && selectedBboxId) {
+      if (isDismissShortcut && selectedBboxId) {
         event.preventDefault();
         onClearSelection();
         return;
       }
 
       if (
-        (event.key === "Delete" || event.key === "Backspace") &&
+        matchesAnyKeyboardShortcut(event, PDF_BBOX_OVERLAY_SHORTCUTS.delete) &&
         selectedBboxId &&
         !editingBboxId
       ) {
@@ -91,7 +113,7 @@ export function useBboxOverlayKeyboardShortcuts({
       }
 
       if (
-        event.key === "Enter" &&
+        matchesKeyboardShortcut(event, PDF_BBOX_OVERLAY_SHORTCUTS.startEditing) &&
         selectedBboxId &&
         !editingBboxId &&
         !hasDraftCreation &&
@@ -117,6 +139,7 @@ export function useBboxOverlayKeyboardShortcuts({
     onCloseEditor,
     onCopyBbox,
     onDeleteBbox,
+    onDuplicateBbox,
     onPasteBbox,
     onStartEditingBbox,
     selectedBboxId

@@ -2,8 +2,20 @@ import type { AppMeta } from "./types/appMeta";
 
 export const APP_META: AppMeta = {
   name: "PDF Anonymization",
-  version: "0.5.7",
+  version: "0.5.8",
   releaseNotes: [
+    {
+      version: "0.5.8",
+      date: "2026-04-06",
+      highlights: [
+        "Fixed viewer/session keyboard shortcuts so Ctrl/Cmd-based commands remain reliable when the active keyboard input language is Arabic or any non-Latin layout.",
+        "Switched canonical command matching from layout-sensitive character output to physical-key semantics (`KeyboardEvent.code`) for shortcut letters such as Copy, Paste, Undo, and Redo.",
+        "Added Ctrl/Cmd+D to duplicate the currently selected bbox using the same canonical duplication path as the bbox Duplicate action.",
+        "Handled the Ctrl/Cmd+D browser bookmark conflict by intentionally preventing default behavior in viewer shortcut context so duplication runs when appropriate.",
+        "Centralized shortcut definitions and matching utilities so keyboard behavior stays maintainable and consistent across overlay and session shortcut handlers.",
+        "Kept strict editable-target guards and interaction-state checks so native typing, caret movement, and input copy/paste behavior remain untouched inside editor fields.",
+      ],
+    },
     {
       version: "0.5.7",
       date: "2026-04-05",

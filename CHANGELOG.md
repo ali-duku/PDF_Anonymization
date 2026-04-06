@@ -1,8 +1,17 @@
 ﻿# Changelog
 
-## [Unreleased] - 2026-04-05
+## [Unreleased] - 2026-04-06
 
 - No unreleased entries yet.
+
+## [0.5.8] - 2026-04-06
+
+- Fixed viewer/session keyboard shortcuts so `Ctrl/Cmd` actions keep working when the active keyboard layout is Arabic (or any non-Latin layout).
+- Replaced layout-sensitive letter matching (`event.key`) with canonical physical-key matching (`event.code`) for `Copy`, `Paste`, `Undo`, and `Redo`.
+- Added `Ctrl/Cmd+D` to duplicate the currently selected bbox through the same canonical duplicate mutation path as the bbox action button.
+- Prevented the browser default bookmark/favorite behavior for `Ctrl/Cmd+D` inside viewer shortcut context so bbox duplication wins when intended.
+- Centralized shortcut definitions and matching helpers into shared modules to keep keyboard behavior consistent and maintainable across overlay/session handlers.
+- Preserved strict editable-target guards and interaction-state gating so native text entry/editing behavior (including input copy/paste and caret operations) remains unchanged.
 
 ## [0.5.7] - 2026-04-05
 

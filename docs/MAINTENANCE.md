@@ -9,7 +9,7 @@ Use semantic versioning and keep versions aligned in:
 - `src/appMeta.ts`
 - `CHANGELOG.md`
 
-Current baseline: `0.5.7` (2026-04-05).
+Current baseline: `0.5.8` (2026-04-06).
 
 ## Definition of Done
 
@@ -37,6 +37,8 @@ UI baseline in v0.5.0:
 - Top header remains a compact single row and contains Save, Export PDF, and What&apos;s New actions.
 - Viewer toolbar remains a compact single row and contains loading/source controls, page controls, zoom actions, undo/redo actions, and a dedicated Paste group (bbox creation is direct drag on the page).
 - Viewer toolbar includes a compact `Rotate page view` action that rotates only the current page view (0/90/180/270) for interaction convenience.
+- Keyboard shortcuts that represent commands (`Ctrl/Cmd+C`, `Ctrl/Cmd+V`, `Ctrl/Cmd+D`, `Ctrl/Cmd+Z`, `Ctrl/Cmd+Y`, `Ctrl/Cmd+Shift+Z`) must remain layout-independent and match canonical physical keys, not Latin-only typed characters.
+- `Ctrl/Cmd+D` is reserved for bbox duplication in viewer shortcut context and should intentionally prevent browser bookmark/favorite default behavior while preserving editable-input safety guards.
 - Bbox action icons include explicit per-bbox `Rotate text` control (0/90/180/270); this state belongs to bbox data and must not be auto-derived from page-view rotation.
 - Bboxes are managed inside page-coordinate bounds with resize/move/delete/duplicate/copy/edit interactions in the viewer stage.
 - Rotated viewer interaction must keep bbox hit testing, creation, move, resize, and overlay alignment correct via shared coordinate transforms.

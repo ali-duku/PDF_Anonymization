@@ -162,6 +162,7 @@ function BboxOverlayLayerComponent({
       onSelectBbox(null);
     },
     onDeleteBbox,
+    onDuplicateBbox,
     onStartEditingBbox,
     onCopyBbox,
     onPasteBbox

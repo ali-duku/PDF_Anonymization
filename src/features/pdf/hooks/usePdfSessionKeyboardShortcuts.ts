@@ -1,5 +1,10 @@
 import { useEffect } from "react";
+import { PDF_SESSION_SHORTCUTS } from "../constants/keyboardShortcuts";
 import { isEditableEventTarget } from "../utils/editableTarget";
+import {
+  matchesAnyKeyboardShortcut,
+  matchesKeyboardShortcut
+} from "../utils/keyboardShortcuts";
 
 interface UsePdfSessionKeyboardShortcutsOptions {
   isEnabled: boolean;
@@ -26,18 +31,13 @@ export function usePdfSessionKeyboardShortcuts({
         return;
       }
 
-      const key = event.key.toLowerCase();
-      const hasControlModifier = event.metaKey || event.ctrlKey;
-      if (!hasControlModifier) {
-        return;
-      }
-
-      const shouldUndo = key === "z" && !event.shiftKey;
-      const shouldRedo = key === "y" || (key === "z" && event.shiftKey);
+      const shouldUndo = matchesKeyboardShortcut(event, PDF_SESSION_SHORTCUTS.undo);
+      const shouldRedo = matchesAnyKeyboardShortcut(event, PDF_SESSION_SHORTCUTS.redo);
 
       if (shouldUndo && canUndo) {
         event.preventDefault();
         onUndo();
+        return;
       }
 
       if (shouldRedo && canRedo) {

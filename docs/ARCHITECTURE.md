@@ -2,7 +2,7 @@
 
 ## Overview
 
-PDF Anonymization v0.5.7 uses a single-page workspace with a PDF-first flow, interactive bbox editing (including copy/duplicate/paste actions and per-bbox text rotation), viewer-only per-page rotation, session save/autosave/restore protection, bounded undo/redo history, and secure PDF-preserving anonymized export.
+PDF Anonymization v0.5.8 uses a single-page workspace with a PDF-first flow, interactive bbox editing (including copy/duplicate/paste actions and per-bbox text rotation), viewer-only per-page rotation, layout-independent keyboard shortcuts, session save/autosave/restore protection, bounded undo/redo history, and secure PDF-preserving anonymized export.
 
 ## Source Layout
 
@@ -24,7 +24,7 @@ PDF Anonymization v0.5.7 uses a single-page workspace with a PDF-first flow, int
   - `components/RestoreSessionPrompt`: app-consistent restore prompt for matching persisted sessions.
   - `components/SessionRiskPrompt`: internal guard dialog for risky source-switch/reset actions.
   - `components/ViewerSaveStatus`: subtle in-viewer autosave status/readout.
-  - `components/BboxOverlayLayer`: page overlay for direct drag-to-create, drag/resize interactions, and keyboard handling (delete + escape + enter-to-edit behavior).
+  - `components/BboxOverlayLayer`: page overlay for direct drag-to-create, drag/resize interactions, and keyboard handling (copy/paste/duplicate, delete, escape, and enter-to-edit behavior).
   - `components/BboxItem`: focused bbox rendering with resize handles, hover/selected action visibility with delayed hide for action-cluster handoff, centered one-line adaptive labels, and right-side Arabic-Indic numbering.
   - `components/BboxActionCluster`: compact per-bbox action controls (trash delete, duplicate, copy, rotate text) with shared icon/button tokens and non-blocking tooltips.
   - `components/BboxLabelEditor`: app-themed inline editor with unified label combobox, compact number input, and focus-safe interaction handling.
@@ -32,6 +32,7 @@ PDF Anonymization v0.5.7 uses a single-page workspace with a PDF-first flow, int
   - `hooks/useManualPdfUpload.ts`: local upload lifecycle.
   - `hooks/usePdfDocument.ts`: PDF.js load/render/page/zoom management with base page dimensions.
   - `hooks/usePdfBboxes.ts`: bbox domain state/actions (including per-bbox text rotation) plus autosave, manual save, restore, export-state tracking, and undo/redo integration.
+  - `hooks/useBboxOverlayKeyboardShortcuts.ts` + `hooks/usePdfSessionKeyboardShortcuts.ts`: centralized viewer/session keyboard handling with shared canonical shortcut matching.
   - `hooks/pdfSession/useSessionPersistence.ts`: focused session autosave/manual-save/restore lifecycle plus per-page viewer-rotation persistence.
   - `hooks/bboxOverlay/useBboxOverlayInteractions.ts`: rotated-view-aware pointer interaction mapping for create/move/resize behavior.
   - `hooks/useBeforeUnloadProtection.ts`: browser `beforeunload` guard when session-loss risk exists.
@@ -40,12 +41,13 @@ PDF Anonymization v0.5.7 uses a single-page workspace with a PDF-first flow, int
   - `constants/bbox.ts`: bbox geometry/visual tokens and Arabic entity defaults shared by preview and export.
   - `constants/export.ts`: export file-output and WASM export constants.
   - `constants/session.ts`: persistence/save/history/restore constants.
+  - `constants/keyboardShortcuts.ts`: canonical shortcut definitions shared by viewer/session keyboard hooks.
   - `types/bbox.ts`: bbox domain contracts.
   - `types/session.ts`: save lifecycle, history, controller, and persisted session contracts.
   - `services/export/*`: export orchestration, redaction planning, PDFium mutation adapter, overlay rendering adapter, and integrity metrics helpers (including preview-token to PDF-unit parity mapping, glyph-metric label fitting, stable per-bbox text-angle rendering, and PDF stroke-weight calibration for border/text fidelity).
   - `services/sessionStorageService.ts`: localStorage persistence with schema validation/pruning.
   - `services/*`: retrieval adapters plus export service entrypoint.
-  - `utils/*`: identifier validation, geometry helpers, clipboard/duplicate helpers, worker setup, upload fingerprinting, session identity utilities, page-view rotation/coordinate transforms, bbox text-angle helpers, encoding normalization utilities, and shared bbox label layout/fitting helpers for preview/export parity.
+  - `utils/*`: identifier validation, geometry helpers, clipboard/duplicate helpers, worker setup, upload fingerprinting, session identity utilities, page-view rotation/coordinate transforms, bbox text-angle helpers, encoding normalization utilities, canonical keyboard shortcut matching utilities, and shared bbox label layout/fitting helpers for preview/export parity.
 - `src/types`
   - Shared contracts for app metadata, retrieval payloads, service boundaries, and PDF load status.
 
@@ -76,8 +78,8 @@ Each component folder follows:
 - Bbox visual tokens (border, handle size, editor z-index, action button sizing/offsets) are centralized in `src/styles.css`.
 - Viewer toolbar controls consume these tokens for consistent vertical sizing and alignment.
 
-## Scope Boundaries in v0.5.7
+## Scope Boundaries in v0.5.8
 
-- Supported: PDF loading, viewing, interactive bbox editing with stable per-bbox text rotation, deterministic undo/redo, local session persistence (without PDF bytes), restore after accidental close/refresh, and full-document anonymized PDF export that irreversibly redacts only targeted areas while preserving original structure/selectable text outside those areas.
+- Supported: PDF loading, viewing, interactive bbox editing with stable per-bbox text rotation, layout-independent viewer/session keyboard shortcuts (including `Ctrl/Cmd+D` duplication of the selected bbox with browser-bookmark override inside viewer context), deterministic undo/redo, local session persistence (without PDF bytes), restore after accidental close/refresh, and full-document anonymized PDF export that irreversibly redacts only targeted areas while preserving original structure/selectable text outside those areas.
 - Removed entirely: legacy secondary-tab workflows, JSON pipelines, text editing/copy flows, and previous bbox tooling.
 

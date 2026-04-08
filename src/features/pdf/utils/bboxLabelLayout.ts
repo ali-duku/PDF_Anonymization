@@ -40,6 +40,7 @@ export interface BboxMeasuredTextMetrics {
   width: number;
   ascent: number;
   descent: number;
+  inkWidth?: number;
 }
 
 export type BboxLabelMeasureMetrics = (
@@ -123,10 +124,17 @@ export function resolveBboxLabelContentBox(
   borderWidth: number = BBOX_BORDER_WIDTH,
   tokenScale: number = 1
 ): BboxLabelContentBox {
-  const inset = resolveBboxLabelSafeInset(borderWidth, tokenScale);
+  const safeRectWidth = Math.max(rect.width, 0);
+  const safeRectHeight = Math.max(rect.height, 0);
   const scaledMinContentEdge = Math.max(resolveScaledToken(BBOX_LABEL_MIN_CONTENT_EDGE, tokenScale), 0.01);
-  const width = Math.max(rect.width - inset * 2, scaledMinContentEdge);
-  const height = Math.max(rect.height - inset * 2, scaledMinContentEdge);
+  const minWidth = Math.min(scaledMinContentEdge, safeRectWidth);
+  const minHeight = Math.min(scaledMinContentEdge, safeRectHeight);
+  const requestedInset = resolveBboxLabelSafeInset(borderWidth, tokenScale);
+  const maxInsetX = Math.max((safeRectWidth - minWidth) * 0.5, 0);
+  const maxInsetY = Math.max((safeRectHeight - minHeight) * 0.5, 0);
+  const inset = Math.min(requestedInset, maxInsetX, maxInsetY);
+  const width = Math.max(safeRectWidth - inset * 2, minWidth);
+  const height = Math.max(safeRectHeight - inset * 2, minHeight);
 
   return {
     x: rect.x + inset,
@@ -147,6 +155,15 @@ export function resolveBboxLabelWidthPerFontUnit(
       : 0;
 
   return Math.max(deterministicWidth, measuredWidth, BBOX_LABEL_MIN_CONTENT_EDGE);
+}
+
+function resolveMeasuredTextHorizontalSpan(metrics: BboxMeasuredTextMetrics): number {
+  const width = Number.isFinite(metrics.width) && metrics.width > 0 ? metrics.width : 0;
+  const inkWidth =
+    typeof metrics.inkWidth === "number" && Number.isFinite(metrics.inkWidth) && metrics.inkWidth > 0
+      ? metrics.inkWidth
+      : 0;
+  return Math.max(width, inkWidth);
 }
 
 export function resolveBboxLabelFontSize(
@@ -182,12 +199,13 @@ export function resolveBboxLabelFontSize(
       return true;
     }
 
-    if (measured.width <= 0) {
+    const measuredWidth = resolveMeasuredTextHorizontalSpan(measured);
+    if (measuredWidth <= 0) {
       return true;
     }
 
     const measuredHeight = measured.ascent + measured.descent;
-    return measured.width <= safeWidth && measuredHeight <= safeHeight;
+    return measuredWidth <= safeWidth && measuredHeight <= safeHeight;
   };
 
   if (!fitsAtSize(scaledMinFontSize)) {
@@ -242,7 +260,7 @@ export function buildBboxLabelLayoutSpec({
   return {
     normalizedText,
     contentBox,
-    fontSize: Number(fontSize.toFixed(2)),
+    fontSize,
     lineHeight: BBOX_LABEL_LINE_HEIGHT,
     centerX,
     centerY,

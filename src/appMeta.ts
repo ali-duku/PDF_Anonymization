@@ -2,8 +2,19 @@ import type { AppMeta } from "./types/appMeta";
 
 export const APP_META: AppMeta = {
   name: "PDF Anonymization",
-  version: "0.5.8",
+  version: "0.5.9",
   releaseNotes: [
+    {
+      version: "0.5.9",
+      date: "2026-04-08",
+      highlights: [
+        "Hardened export bbox label rendering with a deterministic measure-render-verify fit loop so text stays fully visible across browser, OS, DPI, and font-rendering differences.",
+        "Added explicit export-label safety constants for fit retries, shrink behavior, raster-bound tolerance, and verification insets to keep no-clipping guarantees centralized and maintainable.",
+        "Normalized export label text to a canonical single-line form before fitting and drawing to avoid newline/tab-induced layout instability.",
+        "Removed unsafe upward font-size drift in shared label fitting and extended measured fit checks to include conservative ink-width envelopes, not only advance width.",
+        "Applied tiny-bbox fail-safe behavior that always shrinks toward smaller text instead of risking clipping or cut glyphs.",
+      ],
+    },
     {
       version: "0.5.8",
       date: "2026-04-06",

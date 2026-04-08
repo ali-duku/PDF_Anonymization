@@ -1,20 +1,13 @@
 import { degrees, type PDFDocument, type PDFPage } from "pdf-lib";
-import {
-  BBOX_LABEL_ASCENT_EM,
-  BBOX_LABEL_DESCENT_EM,
-  BBOX_LABEL_FONT_WEIGHT
-} from "../../constants/bbox";
+import { BBOX_LABEL_FONT_WEIGHT } from "../../constants/bbox";
+import { EXPORT_LABEL_CANVAS_SCALE } from "../../constants/exportLabelSafety";
 import { EXPORT_LABEL_FONT_URLS, EXPORT_LABEL_TEXT_COLOR_HEX } from "../../constants/exportTypography";
 import type { PdfBboxRect, PdfPageSize } from "../../types/bbox";
-import {
-  bboxTextRotationQuarterTurnsToDegrees,
-  getBboxTextFitRect,
-  normalizeBboxTextRotationQuarterTurns
-} from "../../utils/bboxTextRotation";
+import { normalizeBboxTextRotationQuarterTurns } from "../../utils/bboxTextRotation";
 import { formatBboxDisplayLabel } from "../../utils/bboxGeometry";
-import { buildBboxLabelLayoutSpec } from "../../utils/bboxLabelLayout";
 import { toPdfPagePointFromDevicePoint } from "./coordinateConversion";
 import { PdfExportError, PdfExportErrorCode } from "./exportErrors";
+import { normalizeExportLabelText, renderVerifiedExportLabelText } from "./exportLabelCanvasLayout";
 
 interface DrawExportLabelTextInput {
   document: PDFDocument;
@@ -36,15 +29,6 @@ interface TextCoordinateContext {
   rotationDegrees: number;
 }
 
-interface CanvasLabelLayout {
-  fontSize: number;
-  centerX: number;
-  baselineY: number;
-  textFrameWidth: number;
-  textFrameHeight: number;
-}
-
-const EXPORT_LABEL_CANVAS_SCALE = 4;
 const EXPORT_LABEL_ARABIC_FONT_FAMILY = "PdfExportLabelArabic";
 const EXPORT_LABEL_LATIN_FONT_FAMILY = "PdfExportLabelLatin";
 
@@ -131,58 +115,6 @@ function resolveTextRotationDegrees(pageSize: PdfPageSize, pageQuarterTurns: num
   return (Math.atan2(deltaY, deltaX) * 180) / Math.PI;
 }
 
-function measureCanvasTextMetrics(
-  context: CanvasRenderingContext2D,
-  labelText: string,
-  fontSize: number
-): { width: number; ascent: number; descent: number } {
-  context.font = buildCanvasFont(fontSize);
-  context.direction = "rtl";
-  const measured = context.measureText(labelText);
-
-  return {
-    width: measured.width,
-    ascent: measured.actualBoundingBoxAscent > 0 ? measured.actualBoundingBoxAscent : BBOX_LABEL_ASCENT_EM * fontSize,
-    descent:
-      measured.actualBoundingBoxDescent > 0 ? measured.actualBoundingBoxDescent : BBOX_LABEL_DESCENT_EM * fontSize
-  };
-}
-
-function resolveCanvasLabelLayout(
-  labelText: string,
-  sourceRect: PdfBboxRect,
-  borderWidth: number,
-  textRotationQuarterTurns: number
-): CanvasLabelLayout {
-  const context = getTextMeasureContext();
-  const measuredUnitMetrics = measureCanvasTextMetrics(context, labelText, 1);
-  const textFrameRect = getBboxTextFitRect(
-    {
-      x: 0,
-      y: 0,
-      width: sourceRect.width,
-      height: sourceRect.height
-    },
-    textRotationQuarterTurns
-  );
-
-  const spec = buildBboxLabelLayoutSpec({
-    labelText,
-    rect: textFrameRect,
-    measuredWidthPerFontUnit: measuredUnitMetrics.width,
-    measureTextMetrics: (fontSize, text) => measureCanvasTextMetrics(context, text, fontSize),
-    borderWidth
-  });
-
-  return {
-    fontSize: Math.max(1, spec.fontSize),
-    centerX: spec.centerX,
-    baselineY: spec.baselineY,
-    textFrameWidth: textFrameRect.width,
-    textFrameHeight: textFrameRect.height
-  };
-}
-
 function createLabelCanvas(width: number, height: number): HTMLCanvasElement {
   ensureCanvasEnvironment();
   const canvas = document.createElement("canvas");
@@ -211,39 +143,33 @@ async function renderLabelPngBytes(
   sourceRect: PdfBboxRect,
   borderWidth: number,
   textRotationQuarterTurns: number
-): Promise<Uint8Array> {
+): Promise<Uint8Array | null> {
   await ensureCanvasFontsLoaded();
 
-  const layout = resolveCanvasLabelLayout(labelText, sourceRect, borderWidth, textRotationQuarterTurns);
-  const scale = EXPORT_LABEL_CANVAS_SCALE;
-  const canvas = createLabelCanvas(
-    Math.ceil(sourceRect.width * scale),
-    Math.ceil(sourceRect.height * scale)
-  );
-  const context = canvas.getContext("2d");
+  const normalizedLabelText = normalizeExportLabelText(labelText);
+  if (!normalizedLabelText) {
+    return null;
+  }
 
-  if (!context) {
+  const scale = EXPORT_LABEL_CANVAS_SCALE;
+  const canvas = createLabelCanvas(Math.ceil(sourceRect.width * scale), Math.ceil(sourceRect.height * scale));
+  const drawContext = canvas.getContext("2d");
+  if (!drawContext) {
     throw new PdfExportError(PdfExportErrorCode.OverlayRendering, "Failed to initialize export label drawing surface.");
   }
 
-  context.setTransform(scale, 0, 0, scale, 0, 0);
-  context.clearRect(0, 0, sourceRect.width, sourceRect.height);
-  context.fillStyle = EXPORT_LABEL_TEXT_COLOR_HEX;
-  context.font = buildCanvasFont(layout.fontSize);
-  context.direction = "rtl";
-  context.textAlign = "center";
-  context.textBaseline = "alphabetic";
-  const textRotationRadians =
-    (bboxTextRotationQuarterTurnsToDegrees(textRotationQuarterTurns) * Math.PI) / 180;
-  const textAnchorX = layout.centerX - layout.textFrameWidth * 0.5;
-  const textBaselineY = layout.baselineY - layout.textFrameHeight * 0.5;
-  context.save();
-  context.translate(sourceRect.width * 0.5, sourceRect.height * 0.5);
-  if (textRotationRadians !== 0) {
-    context.rotate(textRotationRadians);
-  }
-  context.fillText(labelText, textAnchorX, textBaselineY);
-  context.restore();
+  drawContext.setTransform(scale, 0, 0, scale, 0, 0);
+  renderVerifiedExportLabelText({
+    measureContext: getTextMeasureContext(),
+    drawContext,
+    labelText: normalizedLabelText,
+    sourceRect,
+    borderWidth,
+    textRotationQuarterTurns,
+    scale,
+    fillStyle: EXPORT_LABEL_TEXT_COLOR_HEX,
+    buildCanvasFont
+  });
 
   return canvasToPngBytes(canvas);
 }
@@ -257,13 +183,18 @@ export async function drawExportLabelText({
   borderWidth,
   bbox
 }: DrawExportLabelTextInput): Promise<void> {
-  const labelText = formatBboxDisplayLabel(bbox.entityLabel, bbox.instanceNumber);
-  if (!labelText) {
+  const rawLabelText = formatBboxDisplayLabel(bbox.entityLabel, bbox.instanceNumber);
+  const normalizedLabelText = normalizeExportLabelText(rawLabelText);
+  if (!normalizedLabelText) {
     return;
   }
 
   const textRotationQuarterTurns = normalizeBboxTextRotationQuarterTurns(bbox.textRotationQuarterTurns);
-  const pngBytes = await renderLabelPngBytes(labelText, sourceRect, borderWidth, textRotationQuarterTurns);
+  const pngBytes = await renderLabelPngBytes(normalizedLabelText, sourceRect, borderWidth, textRotationQuarterTurns);
+  if (!pngBytes) {
+    return;
+  }
+
   const image = await document.embedPng(pngBytes);
 
   const textCoordinates: TextCoordinateContext = {

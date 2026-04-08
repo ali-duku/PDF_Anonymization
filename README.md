@@ -5,7 +5,7 @@ PDF Anonymization is a browser-based tool focused on one workflow:
 - Input: PDF
 - Output: PDF
 
-## v0.5.8 (2026-04-06)
+## v0.5.9 (2026-04-08)
 
 Current feature set:
 
@@ -37,6 +37,7 @@ Current feature set:
 - Viewer page rotation never mutates PDF bytes and never changes exported page orientation from the input PDF.
 - Export applies each bbox label using its stored text angle while preserving no-clipping label layout safety.
 - Export now performs a redaction-output integrity check and automatically switches to a high-fidelity rasterized secure fallback when mutation output is visually corrupted.
+- Export bbox label fitting now uses a conservative measure-render-verify safety loop with deterministic PDF-space units so label text never clips or gets cut across browser/OS/DPI/font-rendering differences.
 - Real export failures are shown immediately in an on-screen status banner (not tooltip-only).
 - Export label/number ordering, Arabic-Indic numbering, and bbox border styling stay aligned with in-app preview rules.
 - Export processes all pages and downloads one final anonymized PDF file.

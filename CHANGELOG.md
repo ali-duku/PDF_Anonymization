@@ -1,8 +1,16 @@
 ﻿# Changelog
 
-## [Unreleased] - 2026-04-06
+## [Unreleased] - 2026-04-08
 
 - No unreleased entries yet.
+
+## [0.5.9] - 2026-04-08
+
+- Hardened export bbox label rendering with a deterministic measure-render-verify fit loop so label text remains fully visible across browser/OS/DPI/font-rendering differences.
+- Added centralized export-label safety constants for fit-attempt limits, shrink behavior, raster-bounds tolerance, and verification insets.
+- Normalized export label input to canonical single-line text before fitting/drawing to avoid newline/tab-driven layout instability.
+- Removed upward font-size drift in shared bbox label fitting and extended measured-fit width checks to use conservative glyph-ink envelopes (not advance width alone).
+- Added tiny-bbox fail-safe behavior that always shrinks text instead of risking clipping, truncation, or cut ascenders/descenders.
 
 ## [0.5.8] - 2026-04-06
 

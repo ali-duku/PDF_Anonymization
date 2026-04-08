@@ -9,7 +9,7 @@ Use semantic versioning and keep versions aligned in:
 - `src/appMeta.ts`
 - `CHANGELOG.md`
 
-Current baseline: `0.5.8` (2026-04-06).
+Current baseline: `0.5.9` (2026-04-08).
 
 ## Definition of Done
 
@@ -56,6 +56,7 @@ UI baseline in v0.5.0:
 - Anonymized regions are irreversibly redacted through secure PDF mutation (no removable overlay-only masking).
 - Preview/export label ordering and border thickness should stay aligned through shared bbox formatting/visual constants.
 - Export label fitting must remain PDF-space deterministic (safe all-sides inset + one-line fit) so label glyphs never clip or touch bbox borders across browser/zoom/device conditions.
+- Export label rendering must preserve the conservative measure-render-verify safety loop (including shrink fallback and raster-bounds verification) so final drawn glyph pixels always fit inside the safe text frame.
 - Export drawing must convert preview CSS-pixel visual tokens (for example border width and label spacing) into canonical PDF units to avoid preview/export weight drift.
 - Export label sizing should prefer actual glyph metrics (when available) for safe-box fitting and baseline centering so parity improves without relaxing no-clipping guarantees.
 - Viewer/control sizing should use shared CSS tokens from `src/styles.css` instead of repeating hardcoded pixel values.

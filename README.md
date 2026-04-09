@@ -43,7 +43,8 @@ Current feature set:
 - Export now performs a redaction-output integrity check and automatically switches to a high-fidelity rasterized secure fallback when mutation output is visually corrupted.
 - Export integrity verification now runs at full-resolution with strict absolute and ratio thresholds for out-of-bbox visual change detection.
 - Export integrity now also validates text-run structure outside redaction regions so sparse but severe unrelated content loss cannot pass safety checks.
-- Export bbox label fitting now uses a conservative measure-render-verify safety loop with deterministic PDF-space units so label text never clips or gets cut across browser/OS/DPI/font-rendering differences.
+- Export bbox labels are rendered as deterministic vector text in PDF space (not canvas raster glyph images) using embedded Arabic/Latin fonts and script-aware mixed-run fallback.
+- Export bbox label fitting uses one authoritative PDF-space single-line fit strategy (safe content box + deterministic binary-search sizing) so labels stay complete, readable, and unclipped without random spacing artifacts.
 - Real export failures are shown immediately in an on-screen status banner (not tooltip-only).
 - Export label/number ordering, mode-aware numerals, and bbox border styling stay aligned with in-app preview rules.
 - Export processes all pages and downloads one final anonymized PDF file.

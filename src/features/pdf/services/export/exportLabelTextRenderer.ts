@@ -1,15 +1,24 @@
-import { degrees, type PDFDocument, type PDFPage } from "pdf-lib";
+import { degrees, rgb, type PDFDocument, type PDFPage } from "pdf-lib";
 import type { AppLanguageMode } from "../../../../types/language";
 import { resolveLanguageModePresentation } from "../../../../utils/languageMode";
-import { BBOX_LABEL_FONT_WEIGHT } from "../../constants/bbox";
-import { EXPORT_LABEL_CANVAS_SCALE } from "../../constants/exportLabelSafety";
-import { EXPORT_LABEL_FONT_URLS, EXPORT_LABEL_TEXT_COLOR_HEX } from "../../constants/exportTypography";
+import {
+  BBOX_CSS_PIXEL_TO_PDF_UNIT,
+  BBOX_LABEL_MAX_FONT_SIZE,
+  BBOX_LABEL_MIN_FONT_SIZE
+} from "../../constants/bbox";
+import { EXPORT_LABEL_TEXT_COLOR_HEX } from "../../constants/exportTypography";
 import type { PdfBboxRect, PdfPageSize } from "../../types/bbox";
-import { normalizeBboxTextRotationQuarterTurns } from "../../utils/bboxTextRotation";
+import {
+  bboxTextRotationQuarterTurnsToDegrees,
+  getBboxTextFitRect,
+  normalizeBboxTextRotationQuarterTurns
+} from "../../utils/bboxTextRotation";
 import { formatBboxDisplayLabel } from "../../utils/bboxGeometry";
+import { resolveBboxLabelContentBox } from "../../utils/bboxLabelLayout";
 import { toPdfPagePointFromDevicePoint } from "./coordinateConversion";
-import { PdfExportError, PdfExportErrorCode } from "./exportErrors";
-import { normalizeExportLabelText, renderVerifiedExportLabelText } from "./exportLabelCanvasLayout";
+import { resolveExportLabelFit } from "./exportLabelFit";
+import { resolveExportLabelFontSet } from "./exportLabelFontRegistry";
+import { buildExportLabelRuns, normalizeExportLabelText } from "./exportLabelRunLayout";
 
 interface DrawExportLabelTextInput {
   document: PDFDocument;
@@ -26,157 +35,80 @@ interface DrawExportLabelTextInput {
   };
 }
 
-interface TextCoordinateContext {
-  pageSize: PdfPageSize;
-  pageQuarterTurns: number;
-  rotationDegrees: number;
+interface Point {
+  x: number;
+  y: number;
 }
 
-const EXPORT_LABEL_ARABIC_FONT_FAMILY = "PdfExportLabelArabic";
-const EXPORT_LABEL_LATIN_FONT_FAMILY = "PdfExportLabelLatin";
+function toRadians(degreesValue: number): number {
+  return (degreesValue * Math.PI) / 180;
+}
 
-let canvasFontLoadPromise: Promise<void> | null = null;
-let textMeasureContext: CanvasRenderingContext2D | null | undefined;
-
-function ensureCanvasEnvironment(): void {
-  if (typeof document === "undefined") {
-    throw new PdfExportError(PdfExportErrorCode.BrowserSupport, "Export label rendering requires a browser DOM.");
+function rotatePoint(point: Point, degreesValue: number): Point {
+  if (degreesValue === 0) {
+    return point;
   }
 
-  if (typeof FontFace === "undefined") {
-    throw new PdfExportError(PdfExportErrorCode.BrowserSupport, "FontFace API is unavailable for export label rendering.");
-  }
+  const angle = toRadians(degreesValue);
+  const cosine = Math.cos(angle);
+  const sine = Math.sin(angle);
+  return {
+    x: point.x * cosine - point.y * sine,
+    y: point.x * sine + point.y * cosine
+  };
 }
 
-function buildCanvasFont(fontSize: number): string {
-  return `${BBOX_LABEL_FONT_WEIGHT} ${fontSize}px "${EXPORT_LABEL_ARABIC_FONT_FAMILY}", "${EXPORT_LABEL_LATIN_FONT_FAMILY}", sans-serif`;
-}
-
-function getTextMeasureContext(): CanvasRenderingContext2D {
-  if (textMeasureContext !== undefined) {
-    if (!textMeasureContext) {
-      throw new PdfExportError(PdfExportErrorCode.OverlayRendering, "Could not initialize export label text measurement.");
-    }
-
-    return textMeasureContext;
-  }
-
-  ensureCanvasEnvironment();
-  const canvas = document.createElement("canvas");
-  textMeasureContext = canvas.getContext("2d");
-  if (!textMeasureContext) {
-    throw new PdfExportError(PdfExportErrorCode.OverlayRendering, "Could not initialize export label text measurement.");
-  }
-
-  return textMeasureContext;
-}
-
-async function loadCanvasFontFace(family: string, sourceUrl: string): Promise<void> {
-  const loadProbe = `${BBOX_LABEL_FONT_WEIGHT} 12px "${family}"`;
-  if (document.fonts.check(loadProbe)) {
-    return;
-  }
-
-  const face = new FontFace(family, `url(${sourceUrl})`, {
-    style: "normal",
-    weight: `${BBOX_LABEL_FONT_WEIGHT}`
-  });
-
-  await face.load();
-  document.fonts.add(face);
-}
-
-async function ensureCanvasFontsLoaded(): Promise<void> {
-  ensureCanvasEnvironment();
-
-  if (!canvasFontLoadPromise) {
-    canvasFontLoadPromise = Promise.all([
-      loadCanvasFontFace(EXPORT_LABEL_ARABIC_FONT_FAMILY, EXPORT_LABEL_FONT_URLS.arabic),
-      loadCanvasFontFace(EXPORT_LABEL_LATIN_FONT_FAMILY, EXPORT_LABEL_FONT_URLS.latin)
-    ])
-      .then(async () => {
-        await document.fonts.ready;
-      })
-      .catch((error) => {
-        canvasFontLoadPromise = null;
-        throw new PdfExportError(
-          PdfExportErrorCode.OverlayRendering,
-          "Failed to load export label canvas fonts.",
-          { cause: error }
-        );
-      });
-  }
-
-  await canvasFontLoadPromise;
-}
-
-function resolveTextRotationDegrees(pageSize: PdfPageSize, pageQuarterTurns: number): number {
-  const origin = toPdfPagePointFromDevicePoint(pageSize, pageQuarterTurns, 0, 0);
-  const unitX = toPdfPagePointFromDevicePoint(pageSize, pageQuarterTurns, 1, 0);
-  const deltaX = unitX.x - origin.x;
-  const deltaY = unitX.y - origin.y;
-  return (Math.atan2(deltaY, deltaX) * 180) / Math.PI;
-}
-
-function createLabelCanvas(width: number, height: number): HTMLCanvasElement {
-  ensureCanvasEnvironment();
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, width);
-  canvas.height = Math.max(1, height);
-  return canvas;
-}
-
-async function canvasToPngBytes(canvas: HTMLCanvasElement): Promise<Uint8Array> {
-  const blob = await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob((result) => {
-      if (!result) {
-        reject(new PdfExportError(PdfExportErrorCode.OverlayRendering, "Failed to rasterize export label canvas."));
-        return;
-      }
-
-      resolve(result);
-    }, "image/png");
-  });
-
-  return new Uint8Array(await blob.arrayBuffer());
-}
-
-async function renderLabelPngBytes(
-  labelText: string,
-  sourceRect: PdfBboxRect,
-  borderWidth: number,
-  textRotationQuarterTurns: number,
-  direction: CanvasDirection
-): Promise<Uint8Array | null> {
-  await ensureCanvasFontsLoaded();
-
-  const normalizedLabelText = normalizeExportLabelText(labelText);
-  if (!normalizedLabelText) {
+function resolvePdfBaselineContext(
+  pageSize: PdfPageSize,
+  pageQuarterTurns: number,
+  lineStartDevice: Point,
+  baselineUnitDevice: Point
+): { unit: Point; angleDegrees: number } | null {
+  const lineStartPage = toPdfPagePointFromDevicePoint(
+    pageSize,
+    pageQuarterTurns,
+    lineStartDevice.x,
+    lineStartDevice.y
+  );
+  const nextPointPage = toPdfPagePointFromDevicePoint(
+    pageSize,
+    pageQuarterTurns,
+    lineStartDevice.x + baselineUnitDevice.x,
+    lineStartDevice.y + baselineUnitDevice.y
+  );
+  const vector = {
+    x: nextPointPage.x - lineStartPage.x,
+    y: nextPointPage.y - lineStartPage.y
+  };
+  const magnitude = Math.hypot(vector.x, vector.y);
+  if (!Number.isFinite(magnitude) || magnitude <= 0) {
     return null;
   }
 
-  const scale = EXPORT_LABEL_CANVAS_SCALE;
-  const canvas = createLabelCanvas(Math.ceil(sourceRect.width * scale), Math.ceil(sourceRect.height * scale));
-  const drawContext = canvas.getContext("2d");
-  if (!drawContext) {
-    throw new PdfExportError(PdfExportErrorCode.OverlayRendering, "Failed to initialize export label drawing surface.");
-  }
+  const unit = {
+    x: vector.x / magnitude,
+    y: vector.y / magnitude
+  };
 
-  drawContext.setTransform(scale, 0, 0, scale, 0, 0);
-  renderVerifiedExportLabelText({
-    measureContext: getTextMeasureContext(),
-    drawContext,
-    labelText: normalizedLabelText,
-    sourceRect,
-    borderWidth,
-    textRotationQuarterTurns,
-    direction,
-    scale,
-    fillStyle: EXPORT_LABEL_TEXT_COLOR_HEX,
-    buildCanvasFont
-  });
+  return {
+    unit,
+    angleDegrees: (Math.atan2(unit.y, unit.x) * 180) / Math.PI
+  };
+}
 
-  return canvasToPngBytes(canvas);
+function parseHexColor(hexColor: string): { red: number; green: number; blue: number } {
+  const normalized = hexColor.replace("#", "").trim();
+  const expanded =
+    normalized.length === 3
+      ? `${normalized[0]}${normalized[0]}${normalized[1]}${normalized[1]}${normalized[2]}${normalized[2]}`
+      : normalized;
+  const safeHex = /^[0-9a-fA-F]{6}$/.test(expanded) ? expanded : "000000";
+
+  return {
+    red: Number.parseInt(safeHex.slice(0, 2), 16) / 255,
+    green: Number.parseInt(safeHex.slice(2, 4), 16) / 255,
+    blue: Number.parseInt(safeHex.slice(4, 6), 16) / 255
+  };
 }
 
 export async function drawExportLabelText({
@@ -201,37 +133,108 @@ export async function drawExportLabelText({
   }
 
   const textRotationQuarterTurns = normalizeBboxTextRotationQuarterTurns(bbox.textRotationQuarterTurns);
-  const pngBytes = await renderLabelPngBytes(
-    normalizedLabelText,
-    sourceRect,
-    borderWidth,
-    textRotationQuarterTurns,
-    presentation.direction
+  const textFrameRect = getBboxTextFitRect(
+    {
+      x: 0,
+      y: 0,
+      width: sourceRect.width,
+      height: sourceRect.height
+    },
+    textRotationQuarterTurns
   );
-  if (!pngBytes) {
+  const tokenScale = BBOX_CSS_PIXEL_TO_PDF_UNIT;
+  const contentBox = resolveBboxLabelContentBox(textFrameRect, borderWidth, tokenScale);
+  if (contentBox.width <= 0 || contentBox.height <= 0) {
     return;
   }
 
-  const image = await document.embedPng(pngBytes);
+  const fontSet = await resolveExportLabelFontSet(document);
+  const runs = buildExportLabelRuns({
+    labelText: normalizedLabelText,
+    languageMode,
+    fonts: fontSet
+  });
+  if (runs.length === 0) {
+    return;
+  }
 
-  const textCoordinates: TextCoordinateContext = {
+  const fitResult = resolveExportLabelFit({
+    runs,
+    contentBox,
+    minFontSize: BBOX_LABEL_MIN_FONT_SIZE * tokenScale,
+    maxFontSize: BBOX_LABEL_MAX_FONT_SIZE * tokenScale
+  });
+  if (!fitResult || fitResult.fontSize <= 0 || fitResult.lineWidth <= 0) {
+    return;
+  }
+
+  const contentCenter = {
+    x: contentBox.x + contentBox.width * 0.5,
+    y: contentBox.y + contentBox.height * 0.5
+  };
+  const lineStartX = contentCenter.x - fitResult.lineWidth * 0.5;
+  const baselineY = contentCenter.y + (fitResult.ascent - fitResult.descent) * 0.5;
+  const textFrameCenter = {
+    x: textFrameRect.width * 0.5,
+    y: textFrameRect.height * 0.5
+  };
+  const textRotationDegrees = bboxTextRotationQuarterTurnsToDegrees(textRotationQuarterTurns);
+  const rotatedStartOffset = rotatePoint(
+    {
+      x: lineStartX - textFrameCenter.x,
+      y: baselineY - textFrameCenter.y
+    },
+    textRotationDegrees
+  );
+  const sourceCenter = {
+    x: sourceRect.x + sourceRect.width * 0.5,
+    y: sourceRect.y + sourceRect.height * 0.5
+  };
+  const lineStartDevice = {
+    x: sourceCenter.x + rotatedStartOffset.x,
+    y: sourceCenter.y + rotatedStartOffset.y
+  };
+  const baselineUnitDevice = rotatePoint({ x: 1, y: 0 }, textRotationDegrees);
+  const baselineContext = resolvePdfBaselineContext(
     pageSize,
     pageQuarterTurns,
-    rotationDegrees: resolveTextRotationDegrees(pageSize, pageQuarterTurns)
-  };
-
-  const imageAnchor = toPdfPagePointFromDevicePoint(
-    textCoordinates.pageSize,
-    textCoordinates.pageQuarterTurns,
-    sourceRect.x,
-    sourceRect.y + sourceRect.height
+    lineStartDevice,
+    baselineUnitDevice
   );
+  if (!baselineContext) {
+    return;
+  }
 
-  page.drawImage(image, {
-    x: imageAnchor.x,
-    y: imageAnchor.y,
-    width: sourceRect.width,
-    height: sourceRect.height,
-    rotate: degrees(textCoordinates.rotationDegrees)
-  });
+  const lineStartPage = toPdfPagePointFromDevicePoint(
+    pageSize,
+    pageQuarterTurns,
+    lineStartDevice.x,
+    lineStartDevice.y
+  );
+  const textColor = parseHexColor(EXPORT_LABEL_TEXT_COLOR_HEX);
+  let consumedLineWidth = 0;
+  const isRtlMode = presentation.direction === "rtl";
+
+  for (const run of runs) {
+    if (!run.text) {
+      continue;
+    }
+
+    const runWidth = run.widthAtUnit * fitResult.fontSize;
+    const runOffset = isRtlMode
+      ? Math.max(fitResult.lineWidth - consumedLineWidth - runWidth, 0)
+      : consumedLineWidth;
+    const runAnchorX = lineStartPage.x + baselineContext.unit.x * runOffset;
+    const runAnchorY = lineStartPage.y + baselineContext.unit.y * runOffset;
+    page.drawText(run.text, {
+      x: runAnchorX,
+      y: runAnchorY,
+      size: fitResult.fontSize,
+      font: run.font.pdfFont,
+      rotate: degrees(baselineContext.angleDegrees),
+      color: rgb(textColor.red, textColor.green, textColor.blue)
+    });
+
+    consumedLineWidth += runWidth;
+  }
 }

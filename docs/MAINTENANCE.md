@@ -62,7 +62,7 @@ UI baseline in v0.6.0:
 - Export integrity guards must remain fail-closed: full-resolution visual checks and outside-redaction text-structure checks must trigger secure fallback if unrelated content changes are detected.
 - Preview/export label ordering and border thickness should stay aligned through shared bbox formatting/visual constants.
 - Export label fitting must remain PDF-space deterministic (safe all-sides inset + one-line fit) so label glyphs never clip or touch bbox borders across browser/zoom/device conditions.
-- Export label rendering must preserve the conservative measure-render-verify safety loop (including shrink fallback and raster-bounds verification) so final drawn glyph pixels always fit inside the safe text frame.
+- Export label rendering must remain deterministic vector text in PDF space with embedded fonts (no canvas-raster label dependency), preserving natural spacing and complete glyph coverage for Arabic, English, and mixed-script labels.
 - Export drawing must convert preview CSS-pixel visual tokens (for example border width and label spacing) into canonical PDF units to avoid preview/export weight drift.
 - Export label sizing should prefer actual glyph metrics (when available) for safe-box fitting and baseline centering so parity improves without relaxing no-clipping guarantees.
 - Viewer/control sizing should use shared CSS tokens from `src/styles.css` instead of repeating hardcoded pixel values.

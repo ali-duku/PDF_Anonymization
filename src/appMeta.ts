@@ -15,6 +15,8 @@ export const APP_META: AppMeta = {
         "Added an explicit top-bar Restore action for the currently opened PDF session while preserving strict identity-key restore guards.",
         "Hardened session persistence by validating snapshot metadata more strictly and by flushing export checkpoints so latest progress remains recoverable after export.",
         "Fixed export-session race behavior by marking exported revision from the export start checkpoint rather than from potentially newer in-flight edits.",
+        "Replaced export label canvas rasterization with deterministic vector text drawing in PDF space using embedded Arabic/Latin fonts for cross-environment output stability.",
+        "Fixed export missing-letter edge cases by hardening glyph coverage and script-aware mixed-run fallback so label text remains complete and readable.",
       ],
     },
     {

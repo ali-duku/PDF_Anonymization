@@ -2,7 +2,9 @@
 
 ## [Unreleased] - 2026-04-09
 
-- No unreleased entries yet.
+- Replaced export bbox-label canvas rasterization (`canvas -> PNG -> drawImage`) with deterministic vector text drawing in PDF space using embedded Arabic/Latin fonts.
+- Added a single authoritative one-line export label fit path (binary-search sizing with PDF-space safe content box) so labels stay readable, natural, and unclipped without over-shrinking.
+- Fixed export missing-letter regressions by hardening glyph coverage in embedded label fonts and preserving script-aware mixed-run fallback behavior.
 
 ## [0.6.0] - 2026-04-09
 

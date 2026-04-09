@@ -2,7 +2,7 @@
 
 ## Overview
 
-PDF Anonymization v0.5.9 uses a single-page workspace with a PDF-first flow, interactive bbox editing (including copy/duplicate/paste actions and per-bbox text rotation), viewer-only per-page rotation, layout-independent keyboard shortcuts, session save/autosave/restore protection, bounded undo/redo history, and secure PDF-preserving anonymized export.
+PDF Anonymization v0.5.10 uses a single-page workspace with a PDF-first flow, interactive bbox editing (including copy/duplicate/paste actions and per-bbox text rotation), viewer-only per-page rotation, layout-independent keyboard shortcuts, session save/autosave/restore protection, bounded undo/redo history, and secure PDF-preserving anonymized export.
 
 ## Source Layout
 
@@ -45,7 +45,7 @@ PDF Anonymization v0.5.9 uses a single-page workspace with a PDF-first flow, int
   - `constants/keyboardShortcuts.ts`: canonical shortcut definitions shared by viewer/session keyboard hooks.
   - `types/bbox.ts`: bbox domain contracts.
   - `types/session.ts`: save lifecycle, history, controller, and persisted session contracts.
-  - `services/export/*`: export orchestration, redaction planning, PDFium mutation adapter, overlay rendering adapter, and integrity metrics helpers (including preview-token to PDF-unit parity mapping, conservative no-clip label fit verification, stable per-bbox text-angle rendering, and PDF stroke-weight calibration for border/text fidelity).
+  - `services/export/*`: export orchestration, redaction planning, PDFium mutation adapter, overlay rendering adapter, and integrity guards (including full-resolution visual integrity checks, out-of-bbox text-run structural integrity checks, preview-token to PDF-unit parity mapping, conservative no-clip label fit verification, stable per-bbox text-angle rendering, and PDF stroke-weight calibration for border/text fidelity).
   - `services/sessionStorageService.ts`: localStorage persistence with schema validation/pruning.
   - `services/*`: retrieval adapters plus export service entrypoint.
   - `utils/*`: identifier validation, geometry helpers, clipboard/duplicate helpers, worker setup, upload fingerprinting, session identity utilities, page-view rotation/coordinate transforms, bbox text-angle helpers, encoding normalization utilities, canonical keyboard shortcut matching utilities, and shared bbox label layout/fitting helpers for preview/export parity.
@@ -79,8 +79,8 @@ Each component folder follows:
 - Bbox visual tokens (border, handle size, editor z-index, action button sizing/offsets) are centralized in `src/styles.css`.
 - Viewer toolbar controls consume these tokens for consistent vertical sizing and alignment.
 
-## Scope Boundaries in v0.5.9
+## Scope Boundaries in v0.5.10
 
-- Supported: PDF loading, viewing, interactive bbox editing with stable per-bbox text rotation, layout-independent viewer/session keyboard shortcuts (including `Ctrl/Cmd+D` duplication of the selected bbox with browser-bookmark override inside viewer context), deterministic undo/redo, local session persistence (without PDF bytes), restore after accidental close/refresh, and full-document anonymized PDF export that irreversibly redacts only targeted areas while preserving original structure/selectable text outside those areas. Export label rendering uses a conservative measure-render-verify fit strategy so bbox label text remains fully visible across browser/OS/DPI/font-rendering differences.
+- Supported: PDF loading, viewing, interactive bbox editing with stable per-bbox text rotation, layout-independent viewer/session keyboard shortcuts (including `Ctrl/Cmd+D` duplication of the selected bbox with browser-bookmark override inside viewer context), deterministic undo/redo, local session persistence (without PDF bytes), restore after accidental close/refresh, and full-document anonymized PDF export that irreversibly redacts only targeted areas while preserving original structure/selectable text outside those areas when safe. Export now enforces fail-closed integrity guards (full-resolution visual + text-structure checks outside redaction regions) so unsafe mutation output is automatically replaced by secure fallback before final delivery.
 - Removed entirely: legacy secondary-tab workflows, JSON pipelines, text editing/copy flows, and previous bbox tooling.
 

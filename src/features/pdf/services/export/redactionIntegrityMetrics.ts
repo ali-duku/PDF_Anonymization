@@ -2,6 +2,8 @@ import type { ImageDataLike } from "@embedpdf/models";
 import {
   EXPORT_INTEGRITY_BBOX_MASK_PADDING_PX,
   EXPORT_INTEGRITY_DIFF_RATIO_THRESHOLD,
+  EXPORT_INTEGRITY_MAX_CHANGED_PIXELS,
+  EXPORT_INTEGRITY_MAX_SEVERE_PIXELS,
   EXPORT_INTEGRITY_PIXEL_DIFF_THRESHOLD,
   EXPORT_INTEGRITY_SEVERE_DIFF_RATIO_THRESHOLD,
   EXPORT_INTEGRITY_SEVERE_PIXEL_DIFF_THRESHOLD
@@ -9,6 +11,9 @@ import {
 import type { PdfBbox } from "../../types/bbox";
 
 export interface DifferenceMetrics {
+  comparedPixels: number;
+  changedPixels: number;
+  severePixels: number;
   changedRatio: number;
   severeRatio: number;
 }
@@ -62,13 +67,12 @@ export function evaluateDifference(
   const { width, height } = sourceImage;
   const sourceData = sourceImage.data;
   const redactedData = redactedImage.data;
-  const sampleStride = 2;
   let comparedPixels = 0;
   let changedPixels = 0;
   let severePixels = 0;
 
-  for (let y = 0; y < height; y += sampleStride) {
-    for (let x = 0; x < width; x += sampleStride) {
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
       const pixelOffset = y * width + x;
       if (redactionMask[pixelOffset] === 1) {
         continue;
@@ -99,12 +103,18 @@ export function evaluateDifference(
 
   if (comparedPixels === 0) {
     return {
+      comparedPixels: 0,
+      changedPixels: 0,
+      severePixels: 0,
       changedRatio: 0,
       severeRatio: 0
     };
   }
 
   return {
+    comparedPixels,
+    changedPixels,
+    severePixels,
     changedRatio: changedPixels / comparedPixels,
     severeRatio: severePixels / comparedPixels
   };
@@ -112,6 +122,8 @@ export function evaluateDifference(
 
 export function isPageVisuallyUnsafe(metrics: DifferenceMetrics): boolean {
   return (
+    metrics.changedPixels > EXPORT_INTEGRITY_MAX_CHANGED_PIXELS ||
+    metrics.severePixels > EXPORT_INTEGRITY_MAX_SEVERE_PIXELS ||
     metrics.changedRatio > EXPORT_INTEGRITY_DIFF_RATIO_THRESHOLD ||
     metrics.severeRatio > EXPORT_INTEGRITY_SEVERE_DIFF_RATIO_THRESHOLD
   );

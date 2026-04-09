@@ -2,8 +2,19 @@ import type { AppMeta } from "./types/appMeta";
 
 export const APP_META: AppMeta = {
   name: "PDF Anonymization",
-  version: "0.5.9",
+  version: "0.5.10",
   releaseNotes: [
+    {
+      version: "0.5.10",
+      date: "2026-04-09",
+      highlights: [
+        "Fixed a critical export corruption path where a small bbox could cause unrelated page content to disappear on affected PDFs.",
+        "Hardened export visual-integrity checks to full-resolution sampling with strict absolute and ratio thresholds for out-of-bbox changes.",
+        "Added text-run structural integrity validation outside redaction regions so sparse but high-impact corruption cannot pass export safety checks.",
+        "Changed export integrity behavior to fail closed: unsafe PDFium mutation output now deterministically switches to secure raster fallback instead of being accepted.",
+        "Centralized new export integrity guardrails and tolerances in export constants to keep behavior deterministic and maintainable.",
+      ],
+    },
     {
       version: "0.5.9",
       date: "2026-04-08",

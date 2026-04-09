@@ -9,7 +9,7 @@ Use semantic versioning and keep versions aligned in:
 - `src/appMeta.ts`
 - `CHANGELOG.md`
 
-Current baseline: `0.5.9` (2026-04-08).
+Current baseline: `0.5.10` (2026-04-09).
 
 ## Definition of Done
 
@@ -52,8 +52,9 @@ UI baseline in v0.5.0:
 - Autosave must run after bbox/session mutations and present subtle in-viewer feedback.
 - Restore prompts must appear for matching persisted sessions before replacing live state.
 - Close warnings should use browser-supported `beforeunload` behavior when work is dirty or not yet exported.
-- Export generates one anonymized PDF across all pages when a PDF is loaded and bboxes exist, preserving original document structure/selectable text outside anonymized regions.
+- Export generates one anonymized PDF across all pages when a PDF is loaded and bboxes exist, preserving original document structure/selectable text outside anonymized regions when mutation integrity remains safe.
 - Anonymized regions are irreversibly redacted through secure PDF mutation (no removable overlay-only masking).
+- Export integrity guards must remain fail-closed: full-resolution visual checks and outside-redaction text-structure checks must trigger secure fallback if unrelated content changes are detected.
 - Preview/export label ordering and border thickness should stay aligned through shared bbox formatting/visual constants.
 - Export label fitting must remain PDF-space deterministic (safe all-sides inset + one-line fit) so label glyphs never clip or touch bbox borders across browser/zoom/device conditions.
 - Export label rendering must preserve the conservative measure-render-verify safety loop (including shrink fallback and raster-bounds verification) so final drawn glyph pixels always fit inside the safe text frame.

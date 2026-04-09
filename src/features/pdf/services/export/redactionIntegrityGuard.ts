@@ -3,7 +3,8 @@ import type {
   PdfDocumentObject,
   PdfEngine,
   PdfFile,
-  PdfPageObject
+  PdfPageObject,
+  PdfPageTextRuns
 } from "@embedpdf/models";
 import {
   EXPORT_ENGINE_OPERATION_TIMEOUT_MS,
@@ -19,6 +20,10 @@ import {
   evaluateDifference,
   isPageVisuallyUnsafe
 } from "./redactionIntegrityMetrics";
+import {
+  evaluateTextRunDifference,
+  isPageTextStructurallyUnsafe
+} from "./redactionIntegrityTextRuns";
 import type { PageRedactionPlan } from "./redactionPlanBuilder";
 
 interface RedactionIntegrityInput {
@@ -125,6 +130,19 @@ async function renderPageImage(
   );
 }
 
+async function readPageTextRuns(
+  engine: PdfEngine<Blob>,
+  document: PdfDocumentObject,
+  page: PdfPageObject
+): Promise<PdfPageTextRuns> {
+  return waitForEngineOperation(
+    engine.getPageTextRuns(document, page).toPromise(),
+    PdfExportErrorCode.RedactionApply,
+    "Timed out while reading export integrity text runs.",
+    { documentId: document.id, pageNumber: page.index + 1 }
+  );
+}
+
 export async function verifyRedactionVisualIntegrity(
   input: RedactionIntegrityInput
 ): Promise<RedactionIntegrityResult> {
@@ -157,9 +175,11 @@ export async function verifyRedactionVisualIntegrity(
         };
       }
 
-      const [sourceImage, redactedImage] = await Promise.all([
+      const [sourceImage, redactedImage, sourceTextRuns, redactedTextRuns] = await Promise.all([
         renderPageImage(engine, sourceDocument, sourcePage),
-        renderPageImage(engine, redactedDocument, redactedPage)
+        renderPageImage(engine, redactedDocument, redactedPage),
+        readPageTextRuns(engine, sourceDocument, sourcePage),
+        readPageTextRuns(engine, redactedDocument, redactedPage)
       ]);
       if (
         sourceImage.width !== redactedImage.width ||
@@ -186,7 +206,23 @@ export async function verifyRedactionVisualIntegrity(
       if (isPageVisuallyUnsafe(metrics)) {
         return {
           isSafe: false,
-          reason: `Integrity check failed: page ${plan.pageNumber} changed outside redaction regions.`
+          reason:
+            `Integrity check failed: page ${plan.pageNumber} changed outside redaction regions ` +
+            `(changed=${metrics.changedPixels}, severe=${metrics.severePixels}).`
+        };
+      }
+
+      const textIntegrityMetrics = evaluateTextRunDifference(
+        sourceTextRuns.runs,
+        redactedTextRuns.runs,
+        plan.bboxes
+      );
+      if (isPageTextStructurallyUnsafe(textIntegrityMetrics)) {
+        return {
+          isSafe: false,
+          reason:
+            `Integrity check failed: page ${plan.pageNumber} text changed outside redaction regions ` +
+            `(missing=${textIntegrityMetrics.missingCount}, unexpected=${textIntegrityMetrics.unexpectedCount}).`
         };
       }
     }

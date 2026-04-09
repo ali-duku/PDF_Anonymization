@@ -1,8 +1,16 @@
 ﻿# Changelog
 
-## [Unreleased] - 2026-04-08
+## [Unreleased] - 2026-04-09
 
 - No unreleased entries yet.
+
+## [0.5.10] - 2026-04-09
+
+- Fixed a critical export corruption path where a small bbox could trigger broad unrelated content loss on affected PDFs.
+- Strengthened redaction visual-integrity verification to full-resolution sampling with strict ratio and absolute outside-mask change limits.
+- Added text-run structural integrity validation outside redaction regions so sparse but severe mutation corruption is detected deterministically.
+- Switched integrity handling to fail closed: unsafe mutation output now automatically falls back to secure rasterized base export.
+- Centralized additional export integrity guardrail constants for strict matching and maintainable safety tuning.
 
 ## [0.5.9] - 2026-04-08
 

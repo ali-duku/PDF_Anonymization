@@ -5,6 +5,8 @@ import { ExportStatusBanner } from "../../components/general/ExportStatusBanner/
 import { pdfRetrievalService } from "../../features/pdf/services/pdfRetrievalService";
 import type { PdfExportController } from "../../features/pdf/types/export";
 import type { PdfSessionController } from "../../features/pdf/types/session";
+import type { AppLanguageMode } from "../../types/language";
+import { readPersistedLanguageMode, writePersistedLanguageMode } from "../../utils/languageMode";
 import styles from "./AppPage.module.css";
 import type { AppPageProps } from "./AppPage.types";
 
@@ -20,6 +22,7 @@ const LazyWhatsNewModal = lazy(async () => {
 
 const INITIAL_SESSION_CONTROLLER: PdfSessionController = {
   canSave: false,
+  canRestore: false,
   saveStatus: "idle",
   lastAutosaveAt: null,
   lastManualSaveAt: null,
@@ -28,11 +31,15 @@ const INITIAL_SESSION_CONTROLLER: PdfSessionController = {
   hasLossRisk: false,
   manualSave: async () => {
     // No-op until the viewer publishes a live session controller.
+  },
+  openRestorePrompt: () => {
+    // No-op until the viewer publishes a live session controller.
   }
 };
 
 export function AppPage({ services }: AppPageProps) {
   const [isWhatsNewOpen, setIsWhatsNewOpen] = useState(false);
+  const [languageMode, setLanguageMode] = useState<AppLanguageMode>(() => readPersistedLanguageMode());
   const [exportController, setExportController] = useState<PdfExportController>({
     canExport: false,
     isExporting: false,
@@ -68,13 +75,15 @@ export function AppPage({ services }: AppPageProps) {
     setSessionController((previous) => {
       if (
         previous.canSave === nextController.canSave &&
+        previous.canRestore === nextController.canRestore &&
         previous.saveStatus === nextController.saveStatus &&
         previous.lastAutosaveAt === nextController.lastAutosaveAt &&
         previous.lastManualSaveAt === nextController.lastManualSaveAt &&
         previous.canUndo === nextController.canUndo &&
         previous.canRedo === nextController.canRedo &&
         previous.hasLossRisk === nextController.hasLossRisk &&
-        previous.manualSave === nextController.manualSave
+        previous.manualSave === nextController.manualSave &&
+        previous.openRestorePrompt === nextController.openRestorePrompt
       ) {
         return previous;
       }
@@ -83,13 +92,22 @@ export function AppPage({ services }: AppPageProps) {
     });
   }, []);
 
+  const handleLanguageModeChange = useCallback((nextMode: AppLanguageMode) => {
+    setLanguageMode(nextMode);
+    writePersistedLanguageMode(nextMode);
+  }, []);
+
   return (
     <div className={styles.appShell}>
       <AppHeader
         appMeta={APP_META}
+        languageMode={languageMode}
+        onLanguageModeChange={handleLanguageModeChange}
         onOpenWhatsNew={() => setIsWhatsNewOpen(true)}
+        onOpenRestoreSession={sessionController.openRestorePrompt}
         onSaveSession={sessionController.manualSave}
         canSaveSession={sessionController.canSave}
+        canRestoreSession={sessionController.canRestore}
         saveStatus={sessionController.saveStatus}
         onExportPdf={exportController.exportPdf}
         canExportPdf={exportController.canExport}
@@ -104,6 +122,7 @@ export function AppPage({ services }: AppPageProps) {
       <main className={styles.mainContent}>
         <Suspense fallback={<p className={styles.loadingFallback}>Loading workspace...</p>}>
           <LazyPdfWorkspace
+            languageMode={languageMode}
             pdfRetrievalService={resolvedPdfRetrievalService}
             onExportControllerChange={handleExportControllerChange}
             onSessionControllerChange={handleSessionControllerChange}

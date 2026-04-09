@@ -5,11 +5,12 @@ PDF Anonymization is a browser-based tool focused on one workflow:
 - Input: PDF
 - Output: PDF
 
-## v0.5.10 (2026-04-09)
+## v0.6.0 (2026-04-09)
 
 Current feature set:
 
 - Single compact workspace for PDF retrieval/upload, viewing, and bbox editing.
+- Top-bar language mode selector (`English` / `Arabic`) with persisted preference.
 - Viewer-only per-page rotation (`0 / 90 / 180 / 270 deg`) for easier anonymization on difficult page orientations.
 - Per-bbox `Rotate text` action icon (`0 / 90 / 180 / 270 deg`) in the bbox action cluster that keeps label orientation stable unless explicitly changed.
 - Direct click-and-drag bbox creation on empty viewer page space (no toolbar creation button).
@@ -17,16 +18,19 @@ Current feature set:
 - Refined outside-corner delete control and centered adaptive bbox label sizing.
 - Inline double-click entity editing with a unified combobox field and immediate apply.
 - Focus-safe bbox editor fields: Entity combobox and Number input remain directly editable.
-- One-line zoom-stable bbox labels with right-side Arabic-Indic instance numbers.
-- Arabic default entity list with combobox filtering and session-only custom labels.
-- Optional numeric suffix support for repeated entities displayed with Arabic-Indic numerals.
+- One-line zoom-stable bbox labels with mode-aware RTL/LTR direction and Arabic-Indic/Latin numerals.
+- Canonical default entity catalog with Arabic entities plus new English entities: `Patient Name`, `Qatar ID`, `HC Number`, `Fin`, `Physician ID`, `Physician Name`, and `Phone Number`.
+- Multilingual entity combobox matching with centralized normalization: English case-insensitive search and Arabic diacritic/Alef-variant tolerant search.
+- Optional numeric suffix support for repeated entities displayed in the active language mode numeral system.
 - Top-bar `Save` action with compact `idle` / `saving` / `saved` status.
+- Top-bar `Restore` action for the currently opened PDF session identity.
 - Autosave on bbox/session mutations with subtle viewer feedback and last autosave time.
 - Bounded undo/redo history for bbox create/move/resize/delete/duplicate/paste/entity/number/text-angle mutations.
 - Viewer/session shortcuts (`Ctrl/Cmd+C`, `Ctrl/Cmd+V`, `Ctrl/Cmd+D`, `Ctrl/Cmd+Z`, `Ctrl/Cmd+Y`, `Ctrl/Cmd+Shift+Z`) are layout-independent and work with Arabic or English keyboard input.
 - `Ctrl/Cmd+D` duplicates the selected bbox through the same canonical duplicate behavior as the bbox Duplicate action and suppresses browser bookmarking in viewer shortcut context.
 - Restore prompt for matching PDF sessions after accidental close/refresh.
 - Browser `beforeunload` close-protection when bbox work is dirty or not yet exported.
+- Export start checkpoints are persisted before export and export revision tracking is checkpoint-based, so latest edits remain recoverable even when edits occur during export.
 - Copy/duplicate/paste preserve bbox text angle consistently.
 - Rotation-related mojibake regressions are normalized in bbox/session label paths and toolbar iconography uses encoding-safe SVG.
 - Export now uses a true PDF-preserving redaction pipeline instead of full-page rasterization.
@@ -41,7 +45,7 @@ Current feature set:
 - Export integrity now also validates text-run structure outside redaction regions so sparse but severe unrelated content loss cannot pass safety checks.
 - Export bbox label fitting now uses a conservative measure-render-verify safety loop with deterministic PDF-space units so label text never clips or gets cut across browser/OS/DPI/font-rendering differences.
 - Real export failures are shown immediately in an on-screen status banner (not tooltip-only).
-- Export label/number ordering, Arabic-Indic numbering, and bbox border styling stay aligned with in-app preview rules.
+- Export label/number ordering, mode-aware numerals, and bbox border styling stay aligned with in-app preview rules.
 - Export processes all pages and downloads one final anonymized PDF file.
 - Persisted session data stores only app/session metadata and bbox state; raw PDF file bytes are never persisted.
 
@@ -72,7 +76,8 @@ npm run build
 - `src/pages/AppPage`: app shell composition.
 - `src/features/pdf/components`: PDF workspace and focused UI sections.
 - `src/features/pdf/hooks`: retrieval/upload/document rendering hooks plus bbox state.
-- `src/features/pdf/constants/bbox.ts`: bbox tokens and Arabic entity defaults.
+- `src/features/pdf/constants/bbox.ts`: bbox geometry and visual tokens.
+- `src/features/pdf/constants/entityCatalog.ts`: canonical default entity catalog (Arabic + English).
 - `src/features/pdf/types/bbox.ts`: bbox domain model contracts.
 - `src/features/pdf/services`: retrieval adapters plus modular redaction/export orchestration.
 - `src/features/pdf/services/sessionStorageService.ts`: local persisted session snapshot storage and pruning.

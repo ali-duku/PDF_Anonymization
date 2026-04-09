@@ -2,8 +2,21 @@ import type { AppMeta } from "./types/appMeta";
 
 export const APP_META: AppMeta = {
   name: "PDF Anonymization",
-  version: "0.5.10",
+  version: "0.6.0",
   releaseNotes: [
+    {
+      version: "0.6.0",
+      date: "2026-04-09",
+      highlights: [
+        "Added a top-bar English/Arabic mode selector with persisted preference so ordering, direction, and numerals can be switched intentionally per workflow.",
+        "Introduced a canonical entity catalog and added new first-class entities: Patient Name, Qatar ID, HC Number, Fin, Physician ID, Physician Name, and Phone Number.",
+        "Upgraded entity combobox matching to centralized multilingual normalization with English case-insensitive search plus Arabic diacritic/Alef-variant tolerant matching.",
+        "Applied language-mode presentation rules to editor/overlay/export label rendering so RTL/LTR direction and Arabic/Latin numeral display stay consistent end to end.",
+        "Added an explicit top-bar Restore action for the currently opened PDF session while preserving strict identity-key restore guards.",
+        "Hardened session persistence by validating snapshot metadata more strictly and by flushing export checkpoints so latest progress remains recoverable after export.",
+        "Fixed export-session race behavior by marking exported revision from the export start checkpoint rather than from potentially newer in-flight edits.",
+      ],
+    },
     {
       version: "0.5.10",
       date: "2026-04-09",

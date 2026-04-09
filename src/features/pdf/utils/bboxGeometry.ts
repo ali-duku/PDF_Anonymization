@@ -1,5 +1,6 @@
 import { BBOX_LABEL_SEPARATOR, BBOX_MIN_SIZE } from "../constants/bbox";
-import { formatArabicIndicDigits } from "./arabicNumerals";
+import type { NumeralSystem } from "../../../utils/languageMode";
+import { formatDigitsForNumeralSystem } from "./arabicNumerals";
 import type {
   BboxDisplayRect,
   BboxResizeHandle,
@@ -245,7 +246,8 @@ export interface BboxDisplayLabelParts {
 
 export function getBboxDisplayLabelParts(
   entityLabel: string,
-  instanceNumber: number | null
+  instanceNumber: number | null,
+  numeralSystem: NumeralSystem = "arabicIndic"
 ): BboxDisplayLabelParts {
   if (entityLabel.trim().length === 0) {
     return {
@@ -263,12 +265,16 @@ export function getBboxDisplayLabelParts(
 
   return {
     entityLabel,
-    instanceLabel: formatArabicIndicDigits(instanceNumber)
+    instanceLabel: formatDigitsForNumeralSystem(instanceNumber, numeralSystem)
   };
 }
 
-export function formatBboxDisplayLabel(entityLabel: string, instanceNumber: number | null): string {
-  const parts = getBboxDisplayLabelParts(entityLabel, instanceNumber);
+export function formatBboxDisplayLabel(
+  entityLabel: string,
+  instanceNumber: number | null,
+  numeralSystem: NumeralSystem = "arabicIndic"
+): string {
+  const parts = getBboxDisplayLabelParts(entityLabel, instanceNumber, numeralSystem);
   if (!parts.entityLabel) {
     return "";
   }

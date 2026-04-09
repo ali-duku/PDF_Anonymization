@@ -4,6 +4,18 @@
 
 - No unreleased entries yet.
 
+## [0.6.0] - 2026-04-09
+
+- Added a top-bar language mode selector (`English` / `Arabic`) with persisted preference and mode-driven UI behavior.
+- Introduced a canonical default entity catalog and added new entities: `Patient Name`, `Qatar ID`, `HC Number`, `Fin`, `Physician ID`, `Physician Name`, and `Phone Number`.
+- Refactored entity option wiring to use catalog-backed defaults plus custom labels while preserving backward-compatible stored bbox labels.
+- Upgraded multilingual entity search with centralized normalization: English matching is case-insensitive, and Arabic matching tolerates diacritics, Alef-form variants, and common equivalent forms.
+- Implemented mode-prioritized empty-query ordering (`Arabic-first` in Arabic mode, `English-first` in English mode) while preserving deterministic option ordering.
+- Applied language-mode presentation rules to label editor/overlay/export rendering so direction (`RTL` / `LTR`) and numeral display (Arabic-Indic / Latin) are consistent across dialog and output surfaces.
+- Added an explicit top-bar `Restore` entry point for the currently opened PDF identity and kept strict identity-key guards to prevent wrong-session restore.
+- Hardened session persistence with stricter snapshot meta validation and export checkpoint persistence, ensuring latest work remains recoverable after export.
+- Fixed export-state race handling so `exportedRevision` is captured from export-start checkpoint revision rather than potentially newer in-flight edits.
+
 ## [0.5.10] - 2026-04-09
 
 - Fixed a critical export corruption path where a small bbox could trigger broad unrelated content loss on affected PDFs.

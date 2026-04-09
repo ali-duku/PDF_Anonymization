@@ -1,9 +1,11 @@
 import type { PdfBbox } from "./bbox";
+import type { AppLanguageMode } from "../../../types/language";
 
 export interface PdfExportInput {
   sourcePdfBlob: Blob;
   bboxes: readonly PdfBbox[];
   sourceFileName?: string | null;
+  languageMode: AppLanguageMode;
 }
 
 export interface PdfExportOptions {}

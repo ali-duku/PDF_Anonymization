@@ -4,6 +4,7 @@ import styles from "./PdfViewerShell.module.css";
 import type { PdfViewerShellProps } from "./PdfViewerShell.types";
 
 function PdfViewerShellComponent({
+  languageMode,
   hasPdf,
   loadStatus,
   statusText,
@@ -42,6 +43,7 @@ function PdfViewerShellComponent({
   return (
     <section className={styles.viewerShell} aria-label="PDF viewer workspace">
       <PdfDocumentStage
+        languageMode={languageMode}
         hasPdf={hasPdf}
         loadStatus={loadStatus}
         statusText={statusText}

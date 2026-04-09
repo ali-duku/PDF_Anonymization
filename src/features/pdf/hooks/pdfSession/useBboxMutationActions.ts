@@ -2,6 +2,7 @@ import { useCallback, useMemo } from "react";
 import { BBOX_MIN_SIZE } from "../../constants/bbox";
 import type { BboxClipboardSnapshot, PdfBbox, PdfBboxRect, PdfPageSize } from "../../types/bbox";
 import type { SessionPresentState } from "../../types/session";
+import type { AppLanguageMode } from "../../../../types/language";
 import { buildDuplicateRect, buildPastedRect, createBboxClipboardSnapshot } from "../../utils/bboxClipboard";
 import { buildNewPdfBbox } from "../../utils/bboxCreation";
 import { resolveBboxTextRotationQuarterTurns } from "../../utils/bboxState";
@@ -28,6 +29,7 @@ type RunMutation = (
 
 export interface UseBboxMutationActionsOptions {
   hasActiveSession: boolean;
+  languageMode: AppLanguageMode;
   currentPage: number;
   currentPageViewRotationQuarterTurns: number;
   pageSize: PdfPageSize;
@@ -58,6 +60,7 @@ export interface BboxMutationActionsResult {
 
 export function useBboxMutationActions({
   hasActiveSession,
+  languageMode,
   currentPage,
   currentPageViewRotationQuarterTurns,
   pageSize,
@@ -70,7 +73,10 @@ export function useBboxMutationActions({
   nextBboxId,
   runMutation
 }: UseBboxMutationActionsOptions): BboxMutationActionsResult {
-  const entityOptions = useMemo(() => buildEntityOptions(customEntityLabels), [customEntityLabels]);
+  const entityOptions = useMemo(
+    () => buildEntityOptions(customEntityLabels, languageMode),
+    [customEntityLabels, languageMode]
+  );
 
   const createBbox = useCallback(
     (rect: PdfBboxRect) => {

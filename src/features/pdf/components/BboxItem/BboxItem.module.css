@@ -40,7 +40,6 @@
   pointer-events: none;
   font-family: var(--bbox-label-font-family);
   font-weight: var(--bbox-label-font-weight);
-  direction: ltr;
   unicode-bidi: isolate;
   transition: opacity var(--ui-fast-transition);
 }
@@ -52,7 +51,6 @@
   display: inline-block;
   white-space: nowrap;
   overflow: hidden;
-  direction: rtl;
   unicode-bidi: plaintext;
 }
 

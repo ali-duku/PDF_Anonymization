@@ -1,18 +1,27 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AUTOSAVE_DEBOUNCE_MS, SAVE_STATUS_HOLD_MS } from "../../constants/session";
-import {
-  DEFAULT_PAGE_VIEW_ROTATION_QUARTER_TURNS,
-  PAGE_VIEW_ROTATION_STEP
-} from "../../constants/pageView";
 import { sessionStorageService } from "../../services/sessionStorageService";
-import type { SaveStatus, SessionHistoryState, SessionViewState } from "../../types/session";
-import { normalizePageViewRotationQuarterTurns } from "../../utils/pageViewTransform";
+import type {
+  SaveStatus,
+  SessionHistoryState,
+  SessionViewState
+} from "../../types/session";
 import { createInitialHistoryState } from "./pdfSessionHistory";
 import {
   buildPersistedSessionSnapshot,
   clonePersistedHistory,
   clonePersistedViewState
 } from "./pdfSessionPersistence";
+import {
+  buildClosedRestoreSessionState,
+  buildOpenRestoreSessionState,
+  buildRestoredSaveLifecycle,
+  hasRestorableSnapshot
+} from "./sessionRestoreHelpers";
+import {
+  buildRotatedViewState,
+  resolveCurrentPageViewRotation
+} from "./sessionViewStateHelpers";
 import {
   CLOSED_RESTORE_PROMPT,
   INITIAL_SAVE_LIFECYCLE,
@@ -34,6 +43,7 @@ export function useSessionPersistence({
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [saveLifecycle, setSaveLifecycle] = useState<SaveLifecycleState>(INITIAL_SAVE_LIFECYCLE);
   const [viewState, setViewState] = useState<SessionViewState>(INITIAL_VIEW_STATE);
+  const [canRestoreSession, setCanRestoreSession] = useState(false);
   const [restoreSessionState, setRestoreSessionState] = useState<RestoreSessionState>({
     prompt: CLOSED_RESTORE_PROMPT,
     pendingSnapshot: null
@@ -71,9 +81,20 @@ export function useSessionPersistence({
           ...nextLifecycle
         })
       );
+      setCanRestoreSession(nextHistory.present.bboxes.length > 0);
     },
     [sessionIdentity]
   );
+  const readRestorableSnapshot = useCallback(() => {
+    if (!sessionIdentity) {
+      return null;
+    }
+    const persistedSnapshot = sessionStorageService.readSnapshot(sessionIdentity.key);
+    if (!hasRestorableSnapshot(persistedSnapshot, sessionIdentity.key)) {
+      return null;
+    }
+    return persistedSnapshot;
+  }, [sessionIdentity]);
   const scheduleSaveStatusReset = useCallback(() => {
     if (saveStatusResetTimeoutRef.current !== null) {
       window.clearTimeout(saveStatusResetTimeoutRef.current);
@@ -104,35 +125,22 @@ export function useSessionPersistence({
     if (!sessionIdentity) {
       setHistory(createInitialHistoryState());
       setSaveLifecycle(INITIAL_SAVE_LIFECYCLE);
-      setRestoreSessionState({
-        prompt: CLOSED_RESTORE_PROMPT,
-        pendingSnapshot: null
-      });
+      setCanRestoreSession(false);
+      setRestoreSessionState(buildClosedRestoreSessionState());
       return;
     }
-    const persistedSnapshot = sessionStorageService.readSnapshot(sessionIdentity.key);
-    const hasRestorableWork = Boolean(persistedSnapshot && persistedSnapshot.history.present.bboxes.length > 0);
+    const persistedSnapshot = readRestorableSnapshot();
+    const hasRestorableWork = Boolean(persistedSnapshot);
     const shouldPromptRestore = hasRestorableWork && skippedRestoreKeyRef.current !== sessionIdentity.key;
     setHistory(createInitialHistoryState());
     setSaveLifecycle(INITIAL_SAVE_LIFECYCLE);
+    setCanRestoreSession(hasRestorableWork);
     if (shouldPromptRestore && persistedSnapshot) {
-      setRestoreSessionState({
-        prompt: {
-          isOpen: true,
-          identityKey: sessionIdentity.key,
-          fileName: persistedSnapshot.meta.identity.fileName,
-          bboxCount: persistedSnapshot.history.present.bboxes.length,
-          lastSavedAt: persistedSnapshot.meta.lastAutosaveAt ?? persistedSnapshot.meta.lastManualSaveAt
-        },
-        pendingSnapshot: persistedSnapshot
-      });
+      setRestoreSessionState(buildOpenRestoreSessionState(sessionIdentity.key, persistedSnapshot));
       return;
     }
-    setRestoreSessionState({
-      prompt: CLOSED_RESTORE_PROMPT,
-      pendingSnapshot: null
-    });
-  }, [sessionIdentity, setClipboardSnapshot, setEditingBboxId, setHistory, setSelectedBboxId]);
+    setRestoreSessionState(buildClosedRestoreSessionState());
+  }, [readRestorableSnapshot, sessionIdentity, setClipboardSnapshot, setEditingBboxId, setHistory, setSelectedBboxId]);
   useEffect(() => {
     if (!sessionIdentity) {
       return;
@@ -181,19 +189,41 @@ export function useSessionPersistence({
     setSaveStatus("saved");
     scheduleSaveStatusReset();
   }, [scheduleSaveStatusReset, sessionIdentity, writeSnapshot]);
-  const markExported = useCallback(() => {
+  const captureExportCheckpoint = useCallback(() => {
     if (!sessionIdentity) {
       return;
     }
+    writeSnapshot(saveLifecycleRef.current, historyRef.current, viewStateRef.current);
+  }, [sessionIdentity, writeSnapshot]);
+  const markExported = useCallback((exportedRevision: number) => {
+    if (!sessionIdentity) {
+      return;
+    }
+    const safeExportedRevision =
+      Number.isFinite(exportedRevision) && exportedRevision >= 0
+        ? Math.trunc(exportedRevision)
+        : historyRef.current.present.revision;
     const nextLifecycle: SaveLifecycleState = {
       ...saveLifecycleRef.current,
-      exportedRevision: historyRef.current.present.revision,
+      exportedRevision: Math.max(saveLifecycleRef.current.exportedRevision, safeExportedRevision),
       lastExportedAt: Date.now()
     };
     saveLifecycleRef.current = nextLifecycle;
     setSaveLifecycle(nextLifecycle);
     writeSnapshot(nextLifecycle);
   }, [sessionIdentity, writeSnapshot]);
+  const openRestoreSessionPrompt = useCallback(() => {
+    if (!sessionIdentity) {
+      return;
+    }
+    const snapshot = readRestorableSnapshot();
+    if (!snapshot) {
+      setCanRestoreSession(false);
+      return;
+    }
+    setCanRestoreSession(true);
+    setRestoreSessionState(buildOpenRestoreSessionState(sessionIdentity.key, snapshot));
+  }, [readRestorableSnapshot, sessionIdentity]);
   const restoreSession = useCallback(() => {
     if (!restoreSessionState.pendingSnapshot || !sessionIdentity) {
       return;
@@ -204,14 +234,7 @@ export function useSessionPersistence({
     }
     const restoredHistory = clonePersistedHistory(snapshot.history);
     const restoredViewState = clonePersistedViewState(snapshot.viewState);
-    const restoredLifecycle: SaveLifecycleState = {
-      lastAutosaveAt: snapshot.meta.lastAutosaveAt,
-      lastManualSaveAt: snapshot.meta.lastManualSaveAt,
-      autosavedRevision: snapshot.meta.autosavedRevision,
-      manualSavedRevision: snapshot.meta.manualSavedRevision,
-      exportedRevision: snapshot.meta.exportedRevision,
-      lastExportedAt: snapshot.meta.lastExportedAt
-    };
+    const restoredLifecycle = buildRestoredSaveLifecycle(snapshot);
     setHistory(restoredHistory);
     setViewState(restoredViewState);
     viewStateRef.current = restoredViewState;
@@ -219,42 +242,23 @@ export function useSessionPersistence({
     saveLifecycleRef.current = restoredLifecycle;
     setSelectedBboxId(null);
     setEditingBboxId(null);
-    setRestoreSessionState({
-      prompt: CLOSED_RESTORE_PROMPT,
-      pendingSnapshot: null
-    });
+    setRestoreSessionState(buildClosedRestoreSessionState());
   }, [restoreSessionState.pendingSnapshot, sessionIdentity, setEditingBboxId, setHistory, setSelectedBboxId]);
   const skipRestoreSession = useCallback(() => {
     const identityKey = restoreSessionState.prompt.identityKey;
     if (identityKey) {
       skippedRestoreKeyRef.current = identityKey;
     }
-    setRestoreSessionState({
-      prompt: CLOSED_RESTORE_PROMPT,
-      pendingSnapshot: null
-    });
-  }, [restoreSessionState.prompt.identityKey]);
-  const currentPageViewRotationQuarterTurns = normalizePageViewRotationQuarterTurns(
-    viewState.pageViewerRotations[currentPage] ?? DEFAULT_PAGE_VIEW_ROTATION_QUARTER_TURNS
-  );
+    setRestoreSessionState(buildClosedRestoreSessionState());
+    setCanRestoreSession(Boolean(sessionIdentity));
+  }, [restoreSessionState.prompt.identityKey, sessionIdentity]);
+  const currentPageViewRotationQuarterTurns = resolveCurrentPageViewRotation(viewState, currentPage);
   const rotateCurrentPageViewClockwise = useCallback(() => {
     if (!sessionIdentity || !Number.isFinite(currentPage) || currentPage <= 0) {
       return;
     }
     setViewState((previous) => {
-      const previousRotation = normalizePageViewRotationQuarterTurns(
-        previous.pageViewerRotations[currentPage] ?? DEFAULT_PAGE_VIEW_ROTATION_QUARTER_TURNS
-      );
-      const nextRotation = normalizePageViewRotationQuarterTurns(previousRotation + PAGE_VIEW_ROTATION_STEP);
-      const nextPageViewerRotations = { ...previous.pageViewerRotations };
-      if (nextRotation === DEFAULT_PAGE_VIEW_ROTATION_QUARTER_TURNS) {
-        delete nextPageViewerRotations[currentPage];
-      } else {
-        nextPageViewerRotations[currentPage] = nextRotation;
-      }
-      const nextViewState: SessionViewState = {
-        pageViewerRotations: nextPageViewerRotations
-      };
+      const nextViewState = buildRotatedViewState(previous, currentPage);
       viewStateRef.current = nextViewState;
       writeSnapshot(saveLifecycleRef.current, historyRef.current, nextViewState);
       return nextViewState;
@@ -264,19 +268,25 @@ export function useSessionPersistence({
     () => ({
       saveStatus,
       saveLifecycle,
+      canRestoreSession,
       restorePromptState: restoreSessionState.prompt,
       pageViewerRotations: viewState.pageViewerRotations,
       currentPageViewRotationQuarterTurns,
       manualSave,
+      openRestoreSessionPrompt,
+      captureExportCheckpoint,
       markExported,
       restoreSession,
       skipRestoreSession,
       rotateCurrentPageViewClockwise
     }),
     [
+      canRestoreSession,
+      captureExportCheckpoint,
       currentPageViewRotationQuarterTurns,
       manualSave,
       markExported,
+      openRestoreSessionPrompt,
       restoreSession,
       restoreSessionState.prompt,
       rotateCurrentPageViewClockwise,

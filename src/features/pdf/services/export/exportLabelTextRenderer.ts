@@ -1,4 +1,6 @@
 import { degrees, type PDFDocument, type PDFPage } from "pdf-lib";
+import type { AppLanguageMode } from "../../../../types/language";
+import { resolveLanguageModePresentation } from "../../../../utils/languageMode";
 import { BBOX_LABEL_FONT_WEIGHT } from "../../constants/bbox";
 import { EXPORT_LABEL_CANVAS_SCALE } from "../../constants/exportLabelSafety";
 import { EXPORT_LABEL_FONT_URLS, EXPORT_LABEL_TEXT_COLOR_HEX } from "../../constants/exportTypography";
@@ -16,6 +18,7 @@ interface DrawExportLabelTextInput {
   pageSize: PdfPageSize;
   pageQuarterTurns: number;
   borderWidth: number;
+  languageMode: AppLanguageMode;
   bbox: {
     entityLabel: string;
     instanceNumber: number | null;
@@ -142,7 +145,8 @@ async function renderLabelPngBytes(
   labelText: string,
   sourceRect: PdfBboxRect,
   borderWidth: number,
-  textRotationQuarterTurns: number
+  textRotationQuarterTurns: number,
+  direction: CanvasDirection
 ): Promise<Uint8Array | null> {
   await ensureCanvasFontsLoaded();
 
@@ -166,6 +170,7 @@ async function renderLabelPngBytes(
     sourceRect,
     borderWidth,
     textRotationQuarterTurns,
+    direction,
     scale,
     fillStyle: EXPORT_LABEL_TEXT_COLOR_HEX,
     buildCanvasFont
@@ -181,16 +186,28 @@ export async function drawExportLabelText({
   pageSize,
   pageQuarterTurns,
   borderWidth,
+  languageMode,
   bbox
 }: DrawExportLabelTextInput): Promise<void> {
-  const rawLabelText = formatBboxDisplayLabel(bbox.entityLabel, bbox.instanceNumber);
+  const presentation = resolveLanguageModePresentation(languageMode);
+  const rawLabelText = formatBboxDisplayLabel(
+    bbox.entityLabel,
+    bbox.instanceNumber,
+    presentation.numeralSystem
+  );
   const normalizedLabelText = normalizeExportLabelText(rawLabelText);
   if (!normalizedLabelText) {
     return;
   }
 
   const textRotationQuarterTurns = normalizeBboxTextRotationQuarterTurns(bbox.textRotationQuarterTurns);
-  const pngBytes = await renderLabelPngBytes(normalizedLabelText, sourceRect, borderWidth, textRotationQuarterTurns);
+  const pngBytes = await renderLabelPngBytes(
+    normalizedLabelText,
+    sourceRect,
+    borderWidth,
+    textRotationQuarterTurns,
+    presentation.direction
+  );
   if (!pngBytes) {
     return;
   }

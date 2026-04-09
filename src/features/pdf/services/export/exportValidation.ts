@@ -18,4 +18,8 @@ export function assertValidExportInput(input: PdfExportInput): void {
   if (input.bboxes.length === 0) {
     throw new PdfExportError(PdfExportErrorCode.Validation, "Add at least one bbox before exporting.");
   }
+
+  if (input.languageMode !== "en" && input.languageMode !== "ar") {
+    throw new PdfExportError(PdfExportErrorCode.Validation, "Invalid export language mode.");
+  }
 }

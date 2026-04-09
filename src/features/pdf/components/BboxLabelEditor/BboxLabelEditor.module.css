@@ -50,8 +50,6 @@
 }
 
 .comboboxInput {
-  direction: rtl;
-  text-align: right;
   unicode-bidi: plaintext;
 }
 
@@ -80,7 +78,6 @@
   background: rgba(8, 14, 20, 0.98);
   display: grid;
   gap: 3px;
-  direction: rtl;
 }
 
 .optionButton {
@@ -89,7 +86,7 @@
   border-radius: 6px;
   background: transparent;
   color: var(--text);
-  text-align: right;
+  text-align: start;
   padding: 5px 8px;
   font-size: 0.82rem;
   cursor: pointer;

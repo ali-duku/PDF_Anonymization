@@ -37,7 +37,7 @@ export async function exportRedactedPdfWithBboxes(
 
     const overlayResult =
       redactionResult.pagePlan.length > 0
-        ? await drawPdfExportOverlays(baseExportBytes, redactionResult.pagePlan)
+        ? await drawPdfExportOverlays(baseExportBytes, redactionResult.pagePlan, input.languageMode)
         : {
             outputBytes: baseExportBytes,
             skippedBboxes: []

@@ -61,6 +61,7 @@ export interface RestorePromptState {
 
 export interface PdfSessionController {
   canSave: boolean;
+  canRestore: boolean;
   saveStatus: SaveStatus;
   lastAutosaveAt: number | null;
   lastManualSaveAt: number | null;
@@ -68,4 +69,5 @@ export interface PdfSessionController {
   canRedo: boolean;
   hasLossRisk: boolean;
   manualSave: () => Promise<void>;
+  openRestorePrompt: () => void;
 }

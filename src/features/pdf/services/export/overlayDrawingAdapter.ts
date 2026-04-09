@@ -8,6 +8,7 @@ import {
 } from "../../constants/bbox";
 import type { PdfPageSize } from "../../types/bbox";
 import type { PdfExportSkippedBbox } from "../../types/export";
+import type { AppLanguageMode } from "../../../../types/language";
 import {
   getDevicePageSize,
   toPageQuarterTurns,
@@ -69,7 +70,8 @@ async function drawBboxOverlay(
   page: PDFPage,
   pageSize: PdfPageSize,
   pageQuarterTurns: number,
-  bbox: PageRedactionPlan["bboxes"][0]
+  bbox: PageRedactionPlan["bboxes"][0],
+  languageMode: AppLanguageMode
 ): Promise<void> {
   const sourceRect = {
     x: bbox.x,
@@ -114,6 +116,7 @@ async function drawBboxOverlay(
     pageSize,
     pageQuarterTurns,
     borderWidth,
+    languageMode,
     bbox: {
       entityLabel: bbox.entityLabel,
       instanceNumber: bbox.instanceNumber,
@@ -125,6 +128,7 @@ async function drawBboxOverlay(
 export async function drawPdfExportOverlays(
   sourcePdfBytes: Uint8Array,
   pagePlan: readonly PageRedactionPlan[],
+  languageMode: AppLanguageMode
 ): Promise<OverlayDrawingResult> {
   const outputDocument = await PDFDocument.load(sourcePdfBytes, {
     ignoreEncryption: true,
@@ -153,7 +157,7 @@ export async function drawPdfExportOverlays(
     skippedBboxes.push(...pageSkippedBboxes);
 
     for (const bbox of validBboxes) {
-      await drawBboxOverlay(outputDocument, page, pageSize, pageQuarterTurns, bbox);
+      await drawBboxOverlay(outputDocument, page, pageSize, pageQuarterTurns, bbox, languageMode);
     }
   }
 

@@ -1,15 +1,17 @@
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { BBOX_COMBOBOX_MAX_OPTIONS } from "../../constants/bbox";
 import {
-  formatArabicIndicDigits,
-  normalizeArabicDigitsToLatin,
-  parsePositiveIntegerFromArabicInput
+  formatDigitsForNumeralSystem,
+  normalizeLocalizedDigitsToLatin,
+  parsePositiveIntegerFromLocalizedInput
 } from "../../utils/arabicNumerals";
 import { buildEntityComboboxOptions, dedupeEntityOptions } from "../../utils/bboxEntityOptions";
+import { resolveLanguageModePresentation } from "../../../../utils/languageMode";
 import styles from "./BboxLabelEditor.module.css";
 import type { BboxLabelEditorProps } from "./BboxLabelEditor.types";
 
 function BboxLabelEditorComponent({
+  languageMode,
   entityLabel,
   instanceNumber,
   options,
@@ -20,11 +22,17 @@ function BboxLabelEditorComponent({
 }: BboxLabelEditorProps) {
   const editorRef = useRef<HTMLDivElement | null>(null);
   const entityInputRef = useRef<HTMLInputElement | null>(null);
+  const languagePresentation = useMemo(
+    () => resolveLanguageModePresentation(languageMode),
+    [languageMode]
+  );
   const [draftEntityLabel, setDraftEntityLabel] = useState(entityLabel);
   const [isOptionsOpen, setIsOptionsOpen] = useState(true);
   const [activeOptionIndex, setActiveOptionIndex] = useState(0);
   const [numberInputValue, setNumberInputValue] = useState(
-    instanceNumber === null ? "" : formatArabicIndicDigits(instanceNumber)
+    instanceNumber === null
+      ? ""
+      : formatDigitsForNumeralSystem(instanceNumber, languagePresentation.numeralSystem)
   );
   const entityInputId = useId();
   const numberInputId = useId();
@@ -39,8 +47,12 @@ function BboxLabelEditorComponent({
   }, [entityLabel]);
 
   useEffect(() => {
-    setNumberInputValue(instanceNumber === null ? "" : formatArabicIndicDigits(instanceNumber));
-  }, [instanceNumber]);
+    setNumberInputValue(
+      instanceNumber === null
+        ? ""
+        : formatDigitsForNumeralSystem(instanceNumber, languagePresentation.numeralSystem)
+    );
+  }, [instanceNumber, languagePresentation.numeralSystem]);
 
   useEffect(() => {
     entityInputRef.current?.focus();
@@ -51,9 +63,10 @@ function BboxLabelEditorComponent({
     return buildEntityComboboxOptions({
       query: draftEntityLabel,
       options: normalizedOptions,
-      maxOptions: BBOX_COMBOBOX_MAX_OPTIONS
+      maxOptions: BBOX_COMBOBOX_MAX_OPTIONS,
+      languageMode
     });
-  }, [draftEntityLabel, normalizedOptions]);
+  }, [draftEntityLabel, languageMode, normalizedOptions]);
 
   useEffect(() => {
     if (filteredOptions.length === 0) {
@@ -139,8 +152,11 @@ function BboxLabelEditorComponent({
             aria-activedescendant={
               showDropdown ? `${listboxId}-option-${activeOptionIndex}` : undefined
             }
-            dir="rtl"
-            lang="ar"
+            dir={languagePresentation.direction}
+            lang={languagePresentation.lang}
+            style={{
+              textAlign: languagePresentation.textAlign
+            }}
             value={draftEntityLabel}
             onFocus={() => {
               setIsOptionsOpen(true);
@@ -188,7 +204,13 @@ function BboxLabelEditorComponent({
           />
 
           {showDropdown && (
-            <ul id={listboxId} role="listbox" className={styles.optionsList} dir="rtl" lang="ar">
+            <ul
+              id={listboxId}
+              role="listbox"
+              className={styles.optionsList}
+              dir={languagePresentation.direction}
+              lang={languagePresentation.lang}
+            >
               {filteredOptions.map((option, index) => {
                 const isActive = index === activeOptionIndex;
                 return (
@@ -199,8 +221,11 @@ function BboxLabelEditorComponent({
                       role="option"
                       aria-selected={isActive}
                       className={`${styles.optionButton} ${isActive ? styles.optionButtonActive : ""}`}
-                      dir="rtl"
-                      lang="ar"
+                      dir={languagePresentation.direction}
+                      lang={languagePresentation.lang}
+                      style={{
+                        textAlign: languagePresentation.textAlign
+                      }}
                       onMouseDown={(event) => {
                         event.preventDefault();
                         handleOptionPick(option);
@@ -239,21 +264,23 @@ function BboxLabelEditorComponent({
             }}
             onChange={(event) => {
               const rawValue = event.currentTarget.value;
-              const normalizedDigits = normalizeArabicDigitsToLatin(rawValue).replace(/[^\d]/g, "");
+              const normalizedDigits = normalizeLocalizedDigitsToLatin(rawValue).replace(/[^\d]/g, "");
               if (!normalizedDigits) {
                 setNumberInputValue("");
                 onInstanceNumberChange(null);
                 return;
               }
 
-              const parsedValue = parsePositiveIntegerFromArabicInput(normalizedDigits);
+              const parsedValue = parsePositiveIntegerFromLocalizedInput(normalizedDigits);
               if (parsedValue === null) {
                 setNumberInputValue("");
                 onInstanceNumberChange(null);
                 return;
               }
 
-              setNumberInputValue(formatArabicIndicDigits(parsedValue));
+              setNumberInputValue(
+                formatDigitsForNumeralSystem(parsedValue, languagePresentation.numeralSystem)
+              );
               onInstanceNumberChange(parsedValue);
             }}
           />

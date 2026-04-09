@@ -28,6 +28,29 @@
   flex: 0 0 auto;
 }
 
+.languageModeField {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.languageModeLabel {
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.languageModeSelect {
+  height: var(--ui-control-height);
+  border: 1px solid var(--line);
+  border-radius: var(--ui-control-radius);
+  background: rgba(20, 32, 45, 0.92);
+  color: var(--text);
+  padding: 0 10px;
+}
+
 .versionBadge {
   border: 1px solid rgba(45, 212, 191, 0.45);
   color: var(--accent);

@@ -20,6 +20,7 @@ interface PendingRiskAction {
 
 const DEFAULT_SESSION_CONTROLLER: PdfSessionController = {
   canSave: false,
+  canRestore: false,
   saveStatus: "idle",
   lastAutosaveAt: null,
   lastManualSaveAt: null,
@@ -27,6 +28,9 @@ const DEFAULT_SESSION_CONTROLLER: PdfSessionController = {
   canRedo: false,
   hasLossRisk: false,
   manualSave: async () => {
+    // No-op until a PDF session is active.
+  },
+  openRestorePrompt: () => {
     // No-op until a PDF session is active.
   }
 };
@@ -44,6 +48,7 @@ function buildDocumentLoadStatus(loadStatus: PdfLoadStatus, errorMessage?: strin
 }
 
 function PdfWorkspaceComponent({
+  languageMode,
   pdfRetrievalService,
   onExportControllerChange,
   onSessionControllerChange
@@ -189,6 +194,7 @@ function PdfWorkspaceComponent({
   return (
     <section className={styles.workspace} aria-label="PDF anonymization workspace">
       <PdfViewerShell
+        languageMode={languageMode}
         hasPdf={pdfState.hasPdf}
         loadStatus={pdfState.loadStatus}
         statusText={statusText}

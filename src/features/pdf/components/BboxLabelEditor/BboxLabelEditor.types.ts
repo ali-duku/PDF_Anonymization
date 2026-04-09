@@ -1,4 +1,7 @@
+import type { AppLanguageMode } from "../../../../types/language";
+
 export interface BboxLabelEditorProps {
+  languageMode: AppLanguageMode;
   entityLabel: string;
   instanceNumber: number | null;
   options: readonly string[];

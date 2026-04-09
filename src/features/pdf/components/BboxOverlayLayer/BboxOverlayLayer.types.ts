@@ -1,7 +1,9 @@
 import type { RefObject } from "react";
 import type { PdfBbox, PdfBboxRect, PdfPageSize } from "../../types/bbox";
+import type { AppLanguageMode } from "../../../../types/language";
 
 export interface BboxOverlayLayerProps {
+  languageMode: AppLanguageMode;
   hasPdf: boolean;
   pageStageRef: RefObject<HTMLDivElement>;
   displayPageSize: PdfPageSize;

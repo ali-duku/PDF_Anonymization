@@ -14,6 +14,7 @@ import {
 import styles from "./PdfDocumentStage.module.css";
 import type { PdfDocumentStageProps } from "./PdfDocumentStage.types";
 function PdfDocumentStageComponent({
+  languageMode,
   hasPdf,
   loadStatus,
   statusText,
@@ -66,7 +67,8 @@ function PdfDocumentStageComponent({
   const bboxState = usePdfBboxes({
     documentMeta,
     currentPage,
-    pageSize
+    pageSize,
+    languageMode
   });
   const currentPageRotationQuarterTurns = bboxState.currentPageViewRotationQuarterTurns;
   const displayPageSize = useMemo(
@@ -89,6 +91,9 @@ function PdfDocumentStageComponent({
     sourcePdfBlob,
     sourceFileName,
     bboxes: bboxState.bboxes,
+    revision: bboxState.revision,
+    languageMode,
+    onExportStart: bboxState.captureExportCheckpoint,
     onExportSuccess: bboxState.markExported
   });
   usePdfSessionKeyboardShortcuts({
@@ -118,13 +123,15 @@ function PdfDocumentStageComponent({
   const sessionController = useMemo(
     () => ({
       canSave: bboxState.canSave && hasPdf,
+      canRestore: bboxState.canRestoreSession && hasPdf,
       saveStatus: bboxState.saveStatus,
       lastAutosaveAt: bboxState.lastAutosaveAt,
       lastManualSaveAt: bboxState.lastManualSaveAt,
       canUndo: bboxState.canUndo,
       canRedo: bboxState.canRedo,
       hasLossRisk: bboxState.hasLossRisk,
-      manualSave: bboxState.manualSave
+      manualSave: bboxState.manualSave,
+      openRestorePrompt: bboxState.openRestoreSessionPrompt
     }),
     [bboxState, hasPdf]
   );
@@ -191,6 +198,7 @@ function PdfDocumentStageComponent({
           {hasPdf && <canvas ref={canvasRef} className={styles.pdfCanvas} style={pageCanvasStyle} />}
           {hasPdf && (
             <BboxOverlayLayer
+              languageMode={languageMode}
               hasPdf={hasPdf}
               pageStageRef={pageStageRef}
               displayPageSize={displayPageSize}
@@ -224,6 +232,7 @@ function PdfDocumentStageComponent({
           )}
         </div>
         <RestoreSessionPrompt
+          languageMode={languageMode}
           isOpen={bboxState.restorePromptState.isOpen}
           fileName={bboxState.restorePromptState.fileName}
           bboxCount={bboxState.restorePromptState.bboxCount}
@@ -246,6 +255,7 @@ function PdfDocumentStageComponent({
             {statusText}
           </p>
           <ViewerSaveStatus
+            languageMode={languageMode}
             hasPdf={hasPdf}
             saveStatus={bboxState.saveStatus}
             lastAutosaveAt={bboxState.lastAutosaveAt}

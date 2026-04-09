@@ -1,11 +1,13 @@
 import type { ChangeEvent, RefObject } from "react";
 import type { PdfLoadStatus } from "../../../../types/pdf";
 import type { RetrievedPdfMeta } from "../../../../types/pdfRetrieval";
+import type { AppLanguageMode } from "../../../../types/language";
 import type { PdfRetrievalStatus } from "../../hooks/usePdfRetrieval";
 import type { PdfExportController } from "../../types/export";
 import type { PdfSessionController } from "../../types/session";
 
 export interface PdfViewerShellProps {
+  languageMode: AppLanguageMode;
   hasPdf: boolean;
   loadStatus: PdfLoadStatus;
   statusText: string;

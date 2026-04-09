@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RetrievedPdfMeta } from "../../../types/pdfRetrieval";
+import type { AppLanguageMode } from "../../../types/language";
 import type { BboxClipboardSnapshot, PdfBbox, PdfBboxRect, PdfPageSize } from "../types/bbox";
 import type {
   PageViewerRotationMap,
@@ -22,6 +23,7 @@ interface UsePdfBboxesOptions {
   documentMeta: RetrievedPdfMeta | null;
   currentPage: number;
   pageSize: PdfPageSize;
+  languageMode: AppLanguageMode;
 }
 
 interface MutationOptions {
@@ -30,6 +32,7 @@ interface MutationOptions {
 }
 
 export interface UsePdfBboxesResult {
+  revision: number;
   bboxes: PdfBbox[];
   currentPageBboxes: PdfBbox[];
   currentPageViewRotationQuarterTurns: number;
@@ -40,6 +43,7 @@ export interface UsePdfBboxesResult {
   canUndo: boolean;
   canRedo: boolean;
   canSave: boolean;
+  canRestoreSession: boolean;
   hasLossRisk: boolean;
   saveStatus: SaveStatus;
   lastAutosaveAt: number | null;
@@ -62,7 +66,9 @@ export interface UsePdfBboxesResult {
   undo: () => void;
   redo: () => void;
   manualSave: () => Promise<void>;
-  markExported: () => void;
+  openRestoreSessionPrompt: () => void;
+  captureExportCheckpoint: () => void;
+  markExported: (exportedRevision: number) => void;
   restoreSession: () => void;
   skipRestoreSession: () => void;
 }
@@ -85,7 +91,8 @@ function withNextRevision(nextState: Omit<SessionPresentState, "revision">, prev
 export function usePdfBboxes({
   documentMeta,
   currentPage,
-  pageSize
+  pageSize,
+  languageMode
 }: UsePdfBboxesOptions): UsePdfBboxesResult {
   const [history, setHistory] = useState<SessionHistoryState>(() => createInitialHistoryState());
   const [selectedBboxId, setSelectedBboxId] = useState<string | null>(null);
@@ -138,6 +145,7 @@ export function usePdfBboxes({
 
   const mutationActions = useBboxMutationActions({
     hasActiveSession: Boolean(sessionIdentity),
+    languageMode,
     currentPage,
     currentPageViewRotationQuarterTurns: sessionPersistence.currentPageViewRotationQuarterTurns,
     pageSize,
@@ -199,6 +207,7 @@ export function usePdfBboxes({
   const hasLossRisk = history.present.bboxes.length > 0 && (hasDirtyChanges || hasUnexportedChanges);
 
   return {
+    revision: history.present.revision,
     bboxes,
     currentPageBboxes,
     currentPageViewRotationQuarterTurns: sessionPersistence.currentPageViewRotationQuarterTurns,
@@ -209,6 +218,7 @@ export function usePdfBboxes({
     canUndo,
     canRedo,
     canSave,
+    canRestoreSession: sessionPersistence.canRestoreSession,
     hasLossRisk,
     saveStatus: sessionPersistence.saveStatus,
     lastAutosaveAt: sessionPersistence.saveLifecycle.lastAutosaveAt,
@@ -231,6 +241,8 @@ export function usePdfBboxes({
     undo,
     redo,
     manualSave: sessionPersistence.manualSave,
+    openRestoreSessionPrompt: sessionPersistence.openRestoreSessionPrompt,
+    captureExportCheckpoint: sessionPersistence.captureExportCheckpoint,
     markExported: sessionPersistence.markExported,
     restoreSession: sessionPersistence.restoreSession,
     skipRestoreSession: sessionPersistence.skipRestoreSession

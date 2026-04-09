@@ -4,9 +4,13 @@ import type { AppHeaderProps } from "./AppHeader.types";
 
 function AppHeaderComponent({
   appMeta,
+  languageMode,
+  onLanguageModeChange,
   onOpenWhatsNew,
+  onOpenRestoreSession,
   onSaveSession,
   canSaveSession,
+  canRestoreSession,
   saveStatus,
   onExportPdf,
   canExportPdf,
@@ -22,6 +26,10 @@ function AppHeaderComponent({
   const saveButtonLabel =
     saveStatus === "saving" ? "Saving..." : saveStatus === "saved" ? "Saved" : "Save";
 
+  const restoreButtonTitle = canRestoreSession
+    ? "Restore the latest saved state for the current PDF session."
+    : "No restorable state is available for the current PDF session.";
+
   const exportButtonTitle = isExportingPdf
     ? "Export in progress..."
     : exportStatusMessage
@@ -35,6 +43,21 @@ function AppHeaderComponent({
       <h1 className={styles.productName}>{appMeta.name}</h1>
 
       <div className={styles.actions}>
+        <label className={styles.languageModeField}>
+          <span className={styles.languageModeLabel}>Mode</span>
+          <select
+            className={styles.languageModeSelect}
+            value={languageMode}
+            onChange={(event) => {
+              onLanguageModeChange(event.currentTarget.value === "en" ? "en" : "ar");
+            }}
+            aria-label="Language mode"
+            title="Switch presentation mode between English and Arabic."
+          >
+            <option value="en">English</option>
+            <option value="ar">Arabic</option>
+          </select>
+        </label>
         <span className={styles.versionBadge} aria-label={`Version ${appMeta.version}`}>
           v{appMeta.version}
         </span>
@@ -48,6 +71,15 @@ function AppHeaderComponent({
           }}
         >
           {saveButtonLabel}
+        </button>
+        <button
+          type="button"
+          className={`${styles.actionButton} ${styles.actionButtonSecondary}`}
+          disabled={!canRestoreSession}
+          title={restoreButtonTitle}
+          onClick={onOpenRestoreSession}
+        >
+          Restore
         </button>
         <button
           type="button"

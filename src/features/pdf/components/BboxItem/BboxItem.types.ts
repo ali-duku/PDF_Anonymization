@@ -1,8 +1,10 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type { BboxDisplayRect, BboxResizeHandle, PdfBbox } from "../../types/bbox";
 import type { BboxActionClusterOffset } from "../../utils/bboxActionClusterPlacement";
+import type { AppLanguageMode } from "../../../../types/language";
 
 export interface BboxItemProps {
+  languageMode: AppLanguageMode;
   bbox: PdfBbox;
   displayRect: BboxDisplayRect;
   pageViewRotationQuarterTurns: number;

@@ -7,8 +7,6 @@ import {
   EXPORT_LABEL_FONT_SHRINK_RATIO,
   EXPORT_LABEL_MAX_FIT_ATTEMPTS,
   EXPORT_LABEL_MIN_FONT_SIZE,
-  EXPORT_LABEL_RASTER_ALPHA_THRESHOLD,
-  EXPORT_LABEL_RASTER_BOUNDS_EPSILON_UNITS,
   EXPORT_LABEL_VERIFICATION_INSET_MAX_UNITS,
   EXPORT_LABEL_VERIFICATION_INSET_MIN_UNITS,
   EXPORT_LABEL_VERIFICATION_INSET_RATIO
@@ -25,6 +23,10 @@ import {
   resolveBboxLabelSafeInset,
   type BboxMeasuredTextMetrics
 } from "../../utils/bboxLabelLayout";
+import {
+  doesRasterBoundsFitSafeRect,
+  resolveRasterAlphaBounds
+} from "./exportLabelRasterBounds";
 
 interface RenderVerifiedExportLabelTextInput {
   measureContext: CanvasRenderingContext2D;
@@ -33,6 +35,7 @@ interface RenderVerifiedExportLabelTextInput {
   sourceRect: PdfBboxRect;
   borderWidth: number;
   textRotationQuarterTurns: number;
+  direction: CanvasDirection;
   scale: number;
   fillStyle: string;
   buildCanvasFont: (fontSize: number) => string;
@@ -44,13 +47,6 @@ interface CanvasLabelLayout {
   baselineY: number;
   textFrameWidth: number;
   textFrameHeight: number;
-}
-
-interface RasterAlphaBounds {
-  left: number;
-  top: number;
-  right: number;
-  bottom: number;
 }
 
 interface MeasuredCanvasTextMetrics extends BboxMeasuredTextMetrics {
@@ -77,10 +73,11 @@ function measureCanvasTextMetrics(
   context: CanvasRenderingContext2D,
   text: string,
   fontSize: number,
+  direction: CanvasDirection,
   buildCanvasFont: (fontSize: number) => string
 ): MeasuredCanvasTextMetrics {
   context.font = buildCanvasFont(fontSize);
-  context.direction = "rtl";
+  context.direction = direction;
   const measured = context.measureText(text);
   const ascent =
     measured.actualBoundingBoxAscent > 0 ? measured.actualBoundingBoxAscent : BBOX_LABEL_ASCENT_EM * fontSize;
@@ -114,63 +111,6 @@ function resolveVerificationSafeRect(sourceRect: PdfBboxRect, borderWidth: numbe
   };
 }
 
-function resolveRasterAlphaBounds(
-  drawContext: CanvasRenderingContext2D,
-  canvasWidth: number,
-  canvasHeight: number
-): RasterAlphaBounds | null {
-  const imageData = drawContext.getImageData(0, 0, canvasWidth, canvasHeight);
-  const data = imageData.data;
-  let left = Number.POSITIVE_INFINITY;
-  let top = Number.POSITIVE_INFINITY;
-  let right = Number.NEGATIVE_INFINITY;
-  let bottom = Number.NEGATIVE_INFINITY;
-
-  for (let y = 0; y < canvasHeight; y += 1) {
-    for (let x = 0; x < canvasWidth; x += 1) {
-      const alpha = data[(y * canvasWidth + x) * 4 + 3];
-      if (alpha < EXPORT_LABEL_RASTER_ALPHA_THRESHOLD) {
-        continue;
-      }
-
-      left = Math.min(left, x);
-      top = Math.min(top, y);
-      right = Math.max(right, x);
-      bottom = Math.max(bottom, y);
-    }
-  }
-
-  if (!Number.isFinite(left) || !Number.isFinite(top) || !Number.isFinite(right) || !Number.isFinite(bottom)) {
-    return null;
-  }
-
-  return { left, top, right, bottom };
-}
-
-function doesRasterBoundsFitSafeRect(
-  bounds: RasterAlphaBounds | null,
-  safeRect: PdfBboxRect,
-  scale: number
-): boolean {
-  if (!bounds) {
-    return true;
-  }
-
-  const left = bounds.left / scale;
-  const top = bounds.top / scale;
-  const right = (bounds.right + 1) / scale;
-  const bottom = (bounds.bottom + 1) / scale;
-  const safeRight = safeRect.x + safeRect.width;
-  const safeBottom = safeRect.y + safeRect.height;
-
-  return (
-    left >= safeRect.x - EXPORT_LABEL_RASTER_BOUNDS_EPSILON_UNITS &&
-    top >= safeRect.y - EXPORT_LABEL_RASTER_BOUNDS_EPSILON_UNITS &&
-    right <= safeRight + EXPORT_LABEL_RASTER_BOUNDS_EPSILON_UNITS &&
-    bottom <= safeBottom + EXPORT_LABEL_RASTER_BOUNDS_EPSILON_UNITS
-  );
-}
-
 function shrinkFontSize(fontSize: number): number {
   const byRatio = fontSize * EXPORT_LABEL_FONT_SHRINK_RATIO;
   const byStep = fontSize - EXPORT_LABEL_FONT_SHRINK_MIN_STEP;
@@ -183,13 +123,20 @@ function resolveLayoutAtFontSize(
   textFrameRect: PdfBboxRect,
   borderWidth: number,
   fontSize: number,
+  direction: CanvasDirection,
   buildCanvasFont: (fontSize: number) => string
 ): CanvasLabelLayout {
   const safeFontSize = Math.max(fontSize, EXPORT_LABEL_MIN_FONT_SIZE);
   const contentBox = resolveBboxLabelContentBox(textFrameRect, borderWidth);
   const centerX = contentBox.x + contentBox.width * 0.5;
   const centerY = contentBox.y + contentBox.height * 0.5;
-  const measured = measureCanvasTextMetrics(measureContext, labelText, safeFontSize, buildCanvasFont);
+  const measured = measureCanvasTextMetrics(
+    measureContext,
+    labelText,
+    safeFontSize,
+    direction,
+    buildCanvasFont
+  );
   const baselineY = centerY + (measured.ascent - measured.descent) * 0.5;
 
   return {
@@ -206,6 +153,7 @@ function drawLabelCandidate(
   labelText: string,
   sourceRect: PdfBboxRect,
   textRotationQuarterTurns: number,
+  direction: CanvasDirection,
   layout: CanvasLabelLayout,
   fillStyle: string,
   buildCanvasFont: (fontSize: number) => string
@@ -213,7 +161,7 @@ function drawLabelCandidate(
   drawContext.clearRect(-1, -1, sourceRect.width + 2, sourceRect.height + 2);
   drawContext.fillStyle = fillStyle;
   drawContext.font = buildCanvasFont(layout.fontSize);
-  drawContext.direction = "rtl";
+  drawContext.direction = direction;
   drawContext.textAlign = "center";
   drawContext.textBaseline = "alphabetic";
 
@@ -237,6 +185,7 @@ export function renderVerifiedExportLabelText({
   sourceRect,
   borderWidth,
   textRotationQuarterTurns,
+  direction,
   scale,
   fillStyle,
   buildCanvasFont
@@ -250,12 +199,19 @@ export function renderVerifiedExportLabelText({
     },
     textRotationQuarterTurns
   );
-  const measuredUnitMetrics = measureCanvasTextMetrics(measureContext, labelText, 1, buildCanvasFont);
+  const measuredUnitMetrics = measureCanvasTextMetrics(
+    measureContext,
+    labelText,
+    1,
+    direction,
+    buildCanvasFont
+  );
   const fittedSpec = buildBboxLabelLayoutSpec({
     labelText,
     rect: textFrameRect,
     measuredWidthPerFontUnit: measuredUnitMetrics.inkWidth,
-    measureTextMetrics: (fontSize, text) => measureCanvasTextMetrics(measureContext, text, fontSize, buildCanvasFont),
+    measureTextMetrics: (fontSize, text) =>
+      measureCanvasTextMetrics(measureContext, text, fontSize, direction, buildCanvasFont),
     borderWidth
   });
   const safeRect = resolveVerificationSafeRect(sourceRect, borderWidth);
@@ -268,6 +224,7 @@ export function renderVerifiedExportLabelText({
       textFrameRect,
       borderWidth,
       currentFontSize,
+      direction,
       buildCanvasFont
     );
     drawLabelCandidate(
@@ -275,6 +232,7 @@ export function renderVerifiedExportLabelText({
       labelText,
       sourceRect,
       textRotationQuarterTurns,
+      direction,
       layout,
       fillStyle,
       buildCanvasFont
@@ -298,6 +256,7 @@ export function renderVerifiedExportLabelText({
     textFrameRect,
     borderWidth,
     EXPORT_LABEL_MIN_FONT_SIZE,
+    direction,
     buildCanvasFont
   );
   drawLabelCandidate(
@@ -305,6 +264,7 @@ export function renderVerifiedExportLabelText({
     labelText,
     sourceRect,
     textRotationQuarterTurns,
+    direction,
     fallbackLayout,
     fillStyle,
     buildCanvasFont

@@ -37,6 +37,7 @@ interface RenderableBbox {
 }
 
 function BboxOverlayLayerComponent({
+  languageMode,
   hasPdf,
   pageStageRef,
   displayPageSize,
@@ -206,6 +207,7 @@ function BboxOverlayLayerComponent({
       {renderableBboxes.map(({ bbox, displayRect, actionClusterOffset }) => (
         <BboxItem
           key={bbox.id}
+          languageMode={languageMode}
           bbox={bbox}
           displayRect={displayRect}
           pageViewRotationQuarterTurns={pageViewRotationQuarterTurns}

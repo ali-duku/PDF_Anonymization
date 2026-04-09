@@ -9,6 +9,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent
 } from "react";
+import { resolveLanguageModePresentation } from "../../../../utils/languageMode";
 import { BBOX_ACTION_HOVER_HIDE_DELAY_MS } from "../../constants/bbox";
 import { getAdaptiveBboxLabelSizing } from "../../utils/bboxLabelSizing";
 import { formatBboxDisplayLabel, getBboxDisplayLabelParts } from "../../utils/bboxGeometry";
@@ -42,6 +43,7 @@ function isEventFromEditor(target: EventTarget | null): boolean {
 }
 
 function BboxItemComponent({
+  languageMode,
   bbox,
   displayRect,
   pageViewRotationQuarterTurns,
@@ -64,6 +66,10 @@ function BboxItemComponent({
 }: BboxItemProps) {
   const [isHovered, setIsHovered] = useState(false);
   const hideActionsTimerRef = useRef<number | null>(null);
+  const languagePresentation = useMemo(
+    () => resolveLanguageModePresentation(languageMode),
+    [languageMode]
+  );
 
   const className = useMemo(
     () =>
@@ -79,13 +85,23 @@ function BboxItemComponent({
   const shouldShowActions = (isSelected || isHovered) && !isEditing;
 
   const labelParts = useMemo(
-    () => getBboxDisplayLabelParts(bbox.entityLabel, bbox.instanceNumber),
-    [bbox.entityLabel, bbox.instanceNumber]
+    () =>
+      getBboxDisplayLabelParts(
+        bbox.entityLabel,
+        bbox.instanceNumber,
+        languagePresentation.numeralSystem
+      ),
+    [bbox.entityLabel, bbox.instanceNumber, languagePresentation.numeralSystem]
   );
 
   const composedLabelText = useMemo(
-    () => formatBboxDisplayLabel(labelParts.entityLabel, bbox.instanceNumber),
-    [bbox.instanceNumber, labelParts.entityLabel]
+    () =>
+      formatBboxDisplayLabel(
+        labelParts.entityLabel,
+        bbox.instanceNumber,
+        languagePresentation.numeralSystem
+      ),
+    [bbox.instanceNumber, labelParts.entityLabel, languagePresentation.numeralSystem]
   );
   const textRotationQuarterTurns = normalizeBboxTextRotationQuarterTurns(bbox.textRotationQuarterTurns);
   const displayTextRotationQuarterTurns = normalizeBboxTextRotationQuarterTurns(
@@ -201,7 +217,11 @@ function BboxItemComponent({
       {labelParts.entityLabel && (
         <span className={styles.label} style={labelStyle}>
           <span className={styles.labelContentWrap} style={labelContentWrapStyle}>
-            <span className={styles.labelContent} dir="rtl" lang="ar">
+            <span
+              className={styles.labelContent}
+              dir={languagePresentation.direction}
+              lang={languagePresentation.lang}
+            >
               {composedLabelText}
             </span>
           </span>
@@ -244,6 +264,7 @@ function BboxItemComponent({
 
       {isEditing && (
         <BboxLabelEditor
+          languageMode={languageMode}
           entityLabel={bbox.entityLabel}
           instanceNumber={bbox.instanceNumber}
           options={entityOptions}

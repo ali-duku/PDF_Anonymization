@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { AppLanguageMode } from "../../../types/language";
 import type { PdfBbox } from "../types/bbox";
 import type { PdfExportController, PdfExportStatusTone } from "../types/export";
 import { downloadBlobFile } from "../utils/fileDownload";
@@ -9,13 +10,18 @@ interface UsePdfExportOptions {
   sourcePdfBlob: Blob | null;
   sourceFileName: string | null;
   bboxes: readonly PdfBbox[];
-  onExportSuccess?: () => void;
+  revision: number;
+  languageMode: AppLanguageMode;
+  onExportStart?: (revision: number) => void;
+  onExportSuccess?: (revision: number) => void;
 }
 
 interface ExportPayloadRef {
   sourcePdfBlob: Blob | null;
   sourceFileName: string | null;
   bboxes: readonly PdfBbox[];
+  revision: number;
+  languageMode: AppLanguageMode;
 }
 
 function normalizeExportError(error: unknown): string {
@@ -33,6 +39,9 @@ export function usePdfExport({
   sourcePdfBlob,
   sourceFileName,
   bboxes,
+  revision,
+  languageMode,
+  onExportStart,
   onExportSuccess
 }: UsePdfExportOptions): PdfExportController {
   const [isExporting, setIsExporting] = useState(false);
@@ -42,7 +51,9 @@ export function usePdfExport({
   const payloadRef = useRef<ExportPayloadRef>({
     sourcePdfBlob,
     sourceFileName,
-    bboxes
+    bboxes,
+    revision,
+    languageMode
   });
   const isExportingRef = useRef(false);
 
@@ -50,9 +61,11 @@ export function usePdfExport({
     payloadRef.current = {
       sourcePdfBlob,
       sourceFileName,
-      bboxes
+      bboxes,
+      revision,
+      languageMode
     };
-  }, [bboxes, sourceFileName, sourcePdfBlob]);
+  }, [bboxes, languageMode, revision, sourceFileName, sourcePdfBlob]);
 
   useEffect(() => {
     isExportingRef.current = isExporting;
@@ -65,6 +78,8 @@ export function usePdfExport({
     if (!payload.sourcePdfBlob || payload.bboxes.length === 0 || isExportingRef.current) {
       return;
     }
+    const exportCheckpointRevision = payload.revision;
+    onExportStart?.(exportCheckpointRevision);
 
     setStatusMessage(undefined);
     setStatusTone(undefined);
@@ -75,7 +90,8 @@ export function usePdfExport({
       const result = await exportRedactedPdfWithBboxes({
         sourcePdfBlob: payload.sourcePdfBlob,
         bboxes: payload.bboxes,
-        sourceFileName: payload.sourceFileName
+        sourceFileName: payload.sourceFileName,
+        languageMode: payload.languageMode
       });
       downloadBlobFile(result.blob, result.fileName);
 
@@ -85,14 +101,14 @@ export function usePdfExport({
         setStatusTone("warning");
       }
 
-      onExportSuccess?.();
+      onExportSuccess?.(exportCheckpointRevision);
     } catch (error) {
       setStatusMessage(normalizeExportError(error));
       setStatusTone("error");
     } finally {
       setIsExporting(false);
     }
-  }, [onExportSuccess]);
+  }, [onExportStart, onExportSuccess]);
 
   return useMemo(
     () => ({

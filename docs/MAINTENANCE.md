@@ -9,7 +9,7 @@ Use semantic versioning and keep versions aligned in:
 - `src/appMeta.ts`
 - `CHANGELOG.md`
 
-Current baseline: `0.5.10` (2026-04-09).
+Current baseline: `0.6.0` (2026-04-09).
 
 ## Definition of Done
 
@@ -32,10 +32,11 @@ Do not reintroduce removed legacy domains without an explicit scoped feature req
 - Text editing/copy workflows
 - Previous bbox editing system
 
-UI baseline in v0.5.0:
+UI baseline in v0.6.0:
 
-- Top header remains a compact single row and contains Save, Export PDF, and What&apos;s New actions.
+- Top header remains a compact single row and contains language mode selection plus Save, Restore, Export PDF, and What&apos;s New actions.
 - Viewer toolbar remains a compact single row and contains loading/source controls, page controls, zoom actions, undo/redo actions, and a dedicated Paste group (bbox creation is direct drag on the page).
+- Language mode selection (`English` / `Arabic`) must remain a real presentation mode (ordering, direction, numerals), not a superficial label swap.
 - Viewer toolbar includes a compact `Rotate page view` action that rotates only the current page view (0/90/180/270) for interaction convenience.
 - Keyboard shortcuts that represent commands (`Ctrl/Cmd+C`, `Ctrl/Cmd+V`, `Ctrl/Cmd+D`, `Ctrl/Cmd+Z`, `Ctrl/Cmd+Y`, `Ctrl/Cmd+Shift+Z`) must remain layout-independent and match canonical physical keys, not Latin-only typed characters.
 - `Ctrl/Cmd+D` is reserved for bbox duplication in viewer shortcut context and should intentionally prevent browser bookmark/favorite default behavior while preserving editable-input safety guards.
@@ -51,7 +52,11 @@ UI baseline in v0.5.0:
 - Session persistence must store only bbox/session metadata and never raw PDF file bytes/blobs.
 - Autosave must run after bbox/session mutations and present subtle in-viewer feedback.
 - Restore prompts must appear for matching persisted sessions before replacing live state.
+- Explicit restore actions must only target the currently active session identity and must never restore the wrong PDF session.
 - Close warnings should use browser-supported `beforeunload` behavior when work is dirty or not yet exported.
+- Export should persist a pre-export checkpoint and mark `exportedRevision` from that checkpoint revision to avoid in-flight edit races.
+- Canonical entity defaults should come from `src/features/pdf/constants/entityCatalog.ts` and remain multilingual-safe for Arabic and English.
+- Entity search normalization should remain centralized and non-destructive, with English case-insensitive behavior and Arabic diacritic/Alef-variant tolerant behavior.
 - Export generates one anonymized PDF across all pages when a PDF is loaded and bboxes exist, preserving original document structure/selectable text outside anonymized regions when mutation integrity remains safe.
 - Anonymized regions are irreversibly redacted through secure PDF mutation (no removable overlay-only masking).
 - Export integrity guards must remain fail-closed: full-resolution visual checks and outside-redaction text-structure checks must trigger secure fallback if unrelated content changes are detected.

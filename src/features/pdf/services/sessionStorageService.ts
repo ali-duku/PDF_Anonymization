@@ -15,6 +15,14 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+function isNullableFiniteNumber(value: unknown): value is number | null {
+  return value === null || isFiniteNumber(value);
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return Number.isInteger(value) && isFiniteNumber(value) && value >= 0;
+}
+
 function isPresentState(value: unknown): value is SessionPresentState {
   if (!value || typeof value !== "object") {
     return false;
@@ -58,14 +66,23 @@ function isPersistedSessionSnapshot(value: unknown): value is PersistedSessionSn
   }
 
   const candidate = value as PersistedSessionSnapshot;
+  const identity = candidate.meta?.identity;
   return Boolean(
     candidate.meta &&
       typeof candidate.meta === "object" &&
-      candidate.meta.identity &&
-      typeof candidate.meta.identity === "object" &&
-      typeof candidate.meta.identity.key === "string" &&
-      typeof candidate.meta.identity.fileName === "string" &&
+      identity &&
+      typeof identity === "object" &&
+      typeof identity.key === "string" &&
+      typeof identity.fileName === "string" &&
+      (identity.sourceType === "retrieval" || identity.sourceType === "upload") &&
+      typeof identity.id === "string" &&
       isFiniteNumber(candidate.meta.updatedAt) &&
+      isNullableFiniteNumber(candidate.meta.lastAutosaveAt) &&
+      isNullableFiniteNumber(candidate.meta.lastManualSaveAt) &&
+      isNullableFiniteNumber(candidate.meta.lastExportedAt) &&
+      isNonNegativeInteger(candidate.meta.autosavedRevision) &&
+      isNonNegativeInteger(candidate.meta.manualSavedRevision) &&
+      isNonNegativeInteger(candidate.meta.exportedRevision) &&
       isHistoryState(candidate.history) &&
       (!candidate.viewState || isViewState(candidate.viewState))
   );
@@ -91,7 +108,7 @@ function normalizeStore(rawStore: unknown): PersistedSessionStore {
 
   const normalizedSessions: Record<string, PersistedSessionSnapshot> = {};
   for (const [key, snapshot] of Object.entries(candidate.sessions)) {
-    if (isPersistedSessionSnapshot(snapshot)) {
+    if (isPersistedSessionSnapshot(snapshot) && snapshot.meta.identity.key === key) {
       normalizedSessions[key] = snapshot;
     }
   }

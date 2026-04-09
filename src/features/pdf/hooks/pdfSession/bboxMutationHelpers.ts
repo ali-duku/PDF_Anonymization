@@ -1,25 +1,33 @@
-import { DEFAULT_ARABIC_ENTITY_LABELS } from "../../constants/bbox";
+import { getDefaultEntityLabels } from "../../constants/entityCatalog";
 import type { PdfBboxRect } from "../../types/bbox";
 import type { SessionPresentState } from "../../types/session";
+import type { AppLanguageMode } from "../../../../types/language";
+import { orderEntityOptionsByLanguagePriority } from "../../utils/bboxEntityOptions";
 import { resolveBboxTextRotationQuarterTurns } from "../../utils/bboxState";
 import { normalizeBboxTextRotationQuarterTurns } from "../../utils/bboxTextRotation";
 import { normalizePotentialMojibakeText } from "../../utils/textEncoding";
 
 type SessionMutationResult = Omit<SessionPresentState, "revision"> | null;
+const DEFAULT_ENTITY_LABELS = getDefaultEntityLabels();
+const DEFAULT_ENTITY_LABEL_SET = new Set(DEFAULT_ENTITY_LABELS);
 
 function areRectsEqual(left: PdfBboxRect, right: PdfBboxRect): boolean {
   return left.x === right.x && left.y === right.y && left.width === right.width && left.height === right.height;
 }
 
-export function buildEntityOptions(customEntityLabels: readonly string[]): readonly string[] {
-  const options: string[] = DEFAULT_ARABIC_ENTITY_LABELS.map((label) => normalizePotentialMojibakeText(label));
+export function buildEntityOptions(
+  customEntityLabels: readonly string[],
+  languageMode: AppLanguageMode
+): readonly string[] {
+  const options: string[] = DEFAULT_ENTITY_LABELS.map((label) => normalizePotentialMojibakeText(label));
   for (const customLabel of customEntityLabels) {
     const normalizedCustomLabel = normalizePotentialMojibakeText(customLabel);
     if (!options.includes(normalizedCustomLabel)) {
       options.push(normalizedCustomLabel);
     }
   }
-  return options;
+
+  return orderEntityOptionsByLanguagePriority(options, languageMode);
 }
 
 export function applyBboxRectUpdate(
@@ -146,7 +154,7 @@ export function applyCustomEntityLabelRegistration(
   }
   if (
     present.customEntityLabels.includes(normalizedLabel) ||
-    (DEFAULT_ARABIC_ENTITY_LABELS as readonly string[]).includes(normalizedLabel)
+    DEFAULT_ENTITY_LABEL_SET.has(normalizedLabel)
   ) {
     return null;
   }

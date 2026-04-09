@@ -37,11 +37,14 @@ export interface UseSessionPersistenceOptions {
 export interface UseSessionPersistenceResult {
   saveStatus: SaveStatus;
   saveLifecycle: SaveLifecycleState;
+  canRestoreSession: boolean;
   restorePromptState: RestorePromptState;
   pageViewerRotations: PageViewerRotationMap;
   currentPageViewRotationQuarterTurns: number;
   manualSave: () => Promise<void>;
-  markExported: () => void;
+  openRestoreSessionPrompt: () => void;
+  captureExportCheckpoint: () => void;
+  markExported: (exportedRevision: number) => void;
   restoreSession: () => void;
   skipRestoreSession: () => void;
   rotateCurrentPageViewClockwise: () => void;
